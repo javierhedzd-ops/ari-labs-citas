@@ -138,7 +138,10 @@ private fun App(almacen: Almacen) {
     LaunchedEffect(nombre.isNotBlank()) {
         Recordatorios.crearCanal(context)
         Recordatorios.reprogramar(context, citas.filter { !Ejemplos.esEjemplo(it) })
-        if (nombre.isNotBlank() && Build.VERSION.SDK_INT >= 33) pedirAvisos.launch(Manifest.permission.POST_NOTIFICATIONS)
+        // Solo si falta: pedirlo de nuevo abre una ventana del sistema encima de la app.
+        if (nombre.isNotBlank() && Build.VERSION.SDK_INT >= 33 &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) pedirAvisos.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     BackHandler(enabled = vista != Vista.Inicio && vista != Vista.Bienvenida) { atras() }
