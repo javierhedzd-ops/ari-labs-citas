@@ -25,11 +25,15 @@ object Ejemplos {
             c(-1, 19, 30, "familia Chan", Tipo.VELORIO, "Centro", Zona.CENTRO, "funeraria La Paz", "9994445566", 800, 800, hecha = true, pagada = true),
             c(0, 10, 0, "don Pedro Canché", Tipo.REZO, "Centro", Zona.CENTRO, "calle 60 x 45", "9997778899", 500, 200),
             c(0, 15, 0, "doña Mari Pech", Tipo.NOVENA, "Chuburná", Zona.NORTE, "calle 21 x 30 y 32", "9991234567", 600, 200),
-            c(0, 19, 30, "familia Uc", Tipo.MISA, "Montebello", Zona.NORTE, "parroquia de Fátima", "9993216540", 700),
+            c(0, 19, 0, "Ana y Luis (boda)", Tipo.BODA, "Montebello", Zona.NORTE, "salón Los Almendros", "9993216540", 3500, 1000)
+                .copy(canciones = listOf(1L, 2L, 13L, 16L), equipoListo = setOf("Teclado", "Bocina")),
             c(1, 9, 0, "señora Rosario Dzul", Tipo.REZO, "Vergel", Zona.ORIENTE, "calle 18 #210", "9995551234", 450, 150),
             c(1, 18, 0, "doña Mari Pech", Tipo.NOVENA, "Chuburná", Zona.NORTE, "calle 21 x 30 y 32", "9991234567"),
             c(2, 17, 0, "don Ramón Ku", Tipo.REZO, "San José Tecoh", Zona.SUR, "calle 105 x 54", "9998887766", 500),
-            c(4, 11, 0, "familia Cauich", Tipo.MISA, "Santiago", Zona.CENTRO, "iglesia de Santiago", "9996663322", 900, 300),
+            c(4, 11, 0, "familia Cauich", Tipo.MISA, "Santiago", Zona.CENTRO, "iglesia de Santiago", "9996663322", 900, 300)
+                .copy(canciones = listOf(1L, 4L, 9L, 12L)),
+            c(5, 20, 0, "XV de Valeria Chan", Tipo.XV, "Altabrisa", Zona.NORTE, "salón Real", "9994441122", 3000, 1500)
+                .copy(canciones = listOf(2L, 14L, 16L)),
             c(6, 20, 0, "maestra Teresa Balam", Tipo.REZO, "Caucel", Zona.PONIENTE, "calle 59 x 104", "9992223344", 500),
         )
     }

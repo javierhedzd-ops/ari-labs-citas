@@ -45,4 +45,12 @@ class CobrosYClientesTest {
         assertEquals(1L, Agenda.proxima(citas, LocalDateTime.of(hoy, LocalTime.of(10, 0)))?.id)
         assertEquals(2L, Agenda.proxima(citas, LocalDateTime.of(hoy, LocalTime.of(18, 0)))?.id)
     }
+
+    @Test
+    fun encimarPorDuracion() {
+        val boda = c(1, 0, "Ana y Luis").copy(hora = LocalTime.of(18, 0), tipo = Tipo.BODA, duracion = 120)
+        assertEquals(1L, Agenda.choca(listOf(boda), hoy, LocalTime.of(19, 30), duracion = 60)?.id)
+        assertEquals(null, Agenda.choca(listOf(boda), hoy, LocalTime.of(20, 0), duracion = 60))
+        assertEquals(1L, Agenda.choca(listOf(boda), hoy, LocalTime.of(17, 30), duracion = 60)?.id)
+    }
 }

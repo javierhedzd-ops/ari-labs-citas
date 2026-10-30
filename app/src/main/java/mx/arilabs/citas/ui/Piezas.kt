@@ -180,6 +180,7 @@ fun TarjetaCita(c: Cita, mostrarFecha: String? = null, onClick: () -> Unit) {
                     textDecoration = if (c.cancelada) TextDecoration.LineThrough else null,
                 )
                 Text(h.substringAfter(" "), style = MaterialTheme.typography.labelSmall, color = Papel.tenue)
+                Text(Mensajes.duracion(c.duracion), style = MaterialTheme.typography.labelSmall, color = Papel.tenue)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 if (mostrarFecha != null) Text(mostrarFecha, style = MaterialTheme.typography.labelMedium, color = Papel.tenue)

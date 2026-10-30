@@ -23,7 +23,7 @@ class LectorDeCitasTest {
         assertEquals(Zona.NORTE, b.zona)
         assertEquals("doña Mari", b.cliente)
         assertNull(b.tipo)
-        assertTrue(b.dudas.any { it.startsWith("¿Es rezo") })
+        assertTrue(b.dudas.any { it.startsWith("¿Qué evento") })
     }
 
     @Test
@@ -95,5 +95,31 @@ class LectorDeCitasTest {
         val b = LectorDeCitas.leer("algo", hoy)
         assertTrue(b.dudas.any { it.startsWith("¿Qué día") })
         assertTrue(b.dudas.any { it.startsWith("¿A qué hora") })
+    }
+
+    @Test
+    fun eventosDelTecladista() {
+        val b = LectorDeCitas.leer("boda sábado 7pm 2 horas salón Los Almendros, Ana y Luis, \$3500 anticipo 1000", hoy)
+        assertEquals(Tipo.BODA, b.tipo)
+        assertEquals(120, b.duracion)
+        assertEquals(LocalTime.of(19, 0), b.hora)
+        assertEquals(3500, b.precio)
+        assertEquals(1000, b.anticipo)
+
+        val xv = LectorDeCitas.leer("XV años el 20 de noviembre 8 de la noche hora y media, familia Chan", hoy)
+        assertEquals(Tipo.XV, xv.tipo)
+        assertEquals(90, xv.duracion)
+        assertEquals(LocalTime.of(20, 0), xv.hora)
+
+        val misa = LectorDeCitas.leer("misa de boda mañana 12:30, parroquia de Fátima, sra. Uc", hoy)
+        assertEquals(Tipo.MISA, misa.tipo)
+
+        val largo = LectorDeCitas.leer("fiesta domingo 5pm 3 horas, doña Lupe", hoy)
+        assertEquals(120, largo.duracion)
+        assertTrue(largo.dudas.any { it.startsWith("Máximo 2 horas") })
+
+        val hora = LectorDeCitas.leer("rezo hoy 15 hrs doña Rosa", hoy)
+        assertEquals(LocalTime.of(15, 0), hora.hora)
+        assertNull(hora.duracion)
     }
 }

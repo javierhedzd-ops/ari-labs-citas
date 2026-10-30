@@ -59,10 +59,41 @@ object Mensajes {
         Tipo.NOVENA -> "la novena"
         Tipo.VELORIO -> "el velorio"
         Tipo.MISA -> "la misa"
+        Tipo.BODA -> "la boda"
+        Tipo.XV -> "los XV años"
+        Tipo.FIESTA -> "la fiesta"
         Tipo.OTRO -> "la cita"
     }
 
-    private fun femenino(c: Cita) = c.tipo == Tipo.NOVENA || c.tipo == Tipo.MISA || c.tipo == Tipo.OTRO
+    private fun cancelado(c: Cita) = when (c.tipo) {
+        Tipo.XV -> "quedan cancelados"
+        Tipo.NOVENA, Tipo.MISA, Tipo.BODA, Tipo.FIESTA, Tipo.OTRO -> "queda cancelada"
+        else -> "queda cancelado"
+    }
+
+    /** "1 h", "1 h 30 min", "45 min" */
+    fun duracion(min: Int): String = when {
+        min < 60 -> "$min min"
+        min % 60 == 0 -> "${min / 60} h"
+        else -> "${min / 60} h ${min % 60} min"
+    }
+
+    /** Cotización lista para WhatsApp. */
+    fun cotizacion(c: Cita, nombre: String, hoy: LocalDate): String = buildString {
+        append(saludo(c.cliente, nombre))
+        append(" Le paso la cotización para ${tipo(c)} ${cuando(c.fecha, hoy)} a las ${hora(c.hora)}")
+        val donde = listOf(c.lugar, c.colonia).filter { it.isNotBlank() }.joinToString(", ")
+        if (donde.isNotBlank()) append(", en $donde")
+        append(".\n\n")
+        append("• Música con teclado: ${duracion(c.duracion)}\n")
+        c.precio?.let { append("• Precio: ${pesos(it)}\n") }
+        val a = c.anticipo
+        if (a != null && a > 0) {
+            append("• Anticipo para apartar la fecha: ${pesos(a)}\n")
+            c.precio?.let { p -> if (p > a) append("• El resto (${pesos(p - a)}) el día del evento\n") }
+        }
+        append("\nSi le parece, aparto la fecha con su anticipo. Quedo a sus órdenes.")
+    }
 
     /** "de hoy", "de mañana" o "del sábado 2 de noviembre" */
     private fun deCuando(f: LocalDate, hoy: LocalDate) = when (f) {
@@ -117,6 +148,6 @@ object Mensajes {
             else -> ""
         }
         return saludo(c.cliente, nombre) +
-            " Le confirmo que ${tipo(c)} ${deCuando(c.fecha, hoy)} a las ${hora(c.hora)} queda ${if (femenino(c)) "cancelada" else "cancelado"}.$linea"
+            " Le confirmo que ${tipo(c)} ${deCuando(c.fecha, hoy)} a las ${hora(c.hora)} ${cancelado(c)}.$linea"
     }
 }

@@ -21,6 +21,39 @@ class Almacen(context: Context) {
         get() = prefs.getString("nombre", "") ?: ""
         set(v) = prefs.edit().putString("nombre", v.trim()).apply()
 
+    // ------------------------------------------------ Repertorio y equipo
+
+    private val archivoRepertorio = File(context.filesDir, "repertorio.json")
+
+    @Synchronized
+    fun leerRepertorio(): List<Cancion> {
+        if (!archivoRepertorio.exists()) return Repertorio.inicial()
+        return runCatching {
+            val a = JSONArray(archivoRepertorio.readText())
+            (0 until a.length()).map { i ->
+                val o = a.getJSONObject(i)
+                Cancion(
+                    id = o.getLong("id"), titulo = o.getString("titulo"), tono = o.optString("tono"),
+                    momento = runCatching { Momento.valueOf(o.optString("momento")) }.getOrDefault(Momento.OTRO),
+                    notas = o.optString("notas"),
+                )
+            }
+        }.getOrElse { Repertorio.inicial() }
+    }
+
+    @Synchronized
+    fun guardarRepertorio(lista: List<Cancion>) {
+        val a = JSONArray()
+        lista.forEach { c -> a.put(JSONObject().put("id", c.id).put("titulo", c.titulo).put("tono", c.tono).put("momento", c.momento.name).put("notas", c.notas)) }
+        val tmp = File(archivoRepertorio.parentFile, "repertorio.json.tmp")
+        tmp.writeText(a.toString())
+        if (!tmp.renameTo(archivoRepertorio)) { archivoRepertorio.writeText(a.toString()); tmp.delete() }
+    }
+
+    var equipo: List<String>
+        get() = prefs.getString("equipo", null)?.split("\n")?.filter { it.isNotBlank() } ?: Repertorio.equipoInicial
+        set(v) = prefs.edit().putString("equipo", v.joinToString("\n")).apply()
+
     @Synchronized
     fun leer(): List<Cita> {
         if (!archivo.exists()) return emptyList()
@@ -82,6 +115,9 @@ class Almacen(context: Context) {
         put("textoOriginal", c.textoOriginal)
         put("hecha", c.hecha)
         put("pagada", c.pagada)
+        put("duracion", c.duracion)
+        put("canciones", JSONArray().apply { c.canciones.forEach { put(it) } })
+        put("equipoListo", JSONArray().apply { c.equipoListo.forEach { put(it) } })
     }
 
     private fun desdeJson(o: JSONObject) = Cita(
@@ -103,5 +139,11 @@ class Almacen(context: Context) {
         textoOriginal = o.optString("textoOriginal"),
         hecha = o.optBoolean("hecha"),
         pagada = o.optBoolean("pagada"),
-    )
+    ).let { c ->
+        c.copy(
+            duracion = o.optInt("duracion", c.tipo.duracion).coerceIn(15, DURACION_MAXIMA),
+            canciones = o.optJSONArray("canciones")?.let { a -> (0 until a.length()).map { a.getLong(it) } } ?: emptyList(),
+            equipoListo = o.optJSONArray("equipoListo")?.let { a -> (0 until a.length()).map { a.getString(it) }.toSet() } ?: emptySet(),
+        )
+    }
 }

@@ -87,9 +87,9 @@ private val margen = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
 // ================================================================ Escribir
 
 private val ejemplos = listOf(
-    "sábado 3pm, novena, colonia Chuburná, doña Mari, 999 123 4567",
-    "mañana a las 7 rezo con don Pedro en calle 60 x 45 centro, \$500, anticipo 200",
-    "el 15 de noviembre misa 10am iglesia de Santiago, familia Pech",
+    "boda sábado 7pm 2 horas salón Los Almendros, Ana y Luis, \$3500, anticipo 1000",
+    "misa 15 de noviembre 10am iglesia de Santiago, familia Pech, 999 123 4567",
+    "mañana a las 7 rezo con don Pedro en calle 60 x 45 centro, \$500",
 )
 
 @Composable
@@ -170,23 +170,26 @@ fun PantallaFormulario(
     var precio by remember { mutableStateOf(inicial.precio?.toString() ?: "") }
     var anticipo by remember { mutableStateOf(inicial.anticipo?.toString() ?: "") }
     var notas by remember { mutableStateOf(inicial.notas) }
+    var duracion by remember { mutableStateOf(inicial.duracion) }
+    val minutos = duracion ?: (tipo ?: Tipo.OTRO).duracion
 
-    val choque = if (fecha != null && hora != null) Agenda.choca(citas, fecha!!, hora!!, editandoId) else null
+    val choque = if (fecha != null && hora != null) Agenda.choca(citas, fecha!!, hora!!, editandoId, minutos) else null
     val pendientes = buildList {
         addAll(inicial.dudas.filter { d ->
             when {
                 d.startsWith("¿Qué día") -> fecha == null
                 d.startsWith("¿A qué hora") -> hora == null
                 d.startsWith("¿Las") -> hora == inicial.hora
-                d.startsWith("¿Es rezo") -> tipo == null
+                d.startsWith("¿Qué evento") -> tipo == null
                 d.startsWith("¿Con quién") -> cliente.isBlank()
                 d.startsWith("¿La cita es con") -> cliente == inicial.cliente
                 d.startsWith("No conozco la colonia") -> zona == Zona.SIN_ZONA
+                d.startsWith("Máximo 2 horas") -> duracion == inicial.duracion
                 d.startsWith("¿Dónde") -> lugar.isBlank() && colonia.isBlank()
                 else -> true
             }
         })
-        if (choque != null) add("Ya tienes a ${choque.cliente} a esa hora.")
+        if (choque != null) add("Se encima con ${choque.tipo.nombre.lowercase()} de ${choque.cliente} (${Mensajes.horaCorta(choque.hora)} a ${Mensajes.horaCorta(choque.termina())}).")
     }
     val listo = fecha != null && hora != null && cliente.isNotBlank()
 
@@ -211,6 +214,15 @@ fun PantallaFormulario(
                 Boton(hora?.let { Mensajes.hora(it) } ?: "Escoger hora", Modifier.fillMaxWidth(), icono = Iconos.reloj) {
                     val h = hora ?: LocalTime.of(17, 0)
                     TimePickerDialog(context, { _, hh, mm -> hora = LocalTime.of(hh, mm) }, h.hour, h.minute, false).show()
+                }
+                Text(
+                    "Dura" + (hora?.let { " · termina ${Mensajes.horaCorta(it.plusMinutes(minutos.toLong()))}" } ?: ""),
+                    style = MaterialTheme.typography.labelMedium, color = Papel.tenue,
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(30, 45, 60, 90, 120).forEach { m ->
+                        FilterChip(selected = minutos == m, onClick = { duracion = m }, label = { Text(Mensajes.duracion(m)) }, modifier = Modifier.heightIn(min = 44.dp))
+                    }
                 }
             }
 
@@ -280,6 +292,7 @@ fun PantallaFormulario(
                     fecha = fecha, hora = hora, cliente = cliente.trim(), tipo = tipo ?: Tipo.OTRO,
                     lugar = lugar.trim(), colonia = colonia.trim(), zona = zona, telefono = telefono.trim(),
                     precio = precio.toIntOrNull(), anticipo = anticipo.toIntOrNull(), notas = notas.trim(),
+                    duracion = minutos,
                 ),
                 nueveDias && tipo == Tipo.NOVENA && editandoId == null,
             )
@@ -330,6 +343,11 @@ fun PantallaDetalle(
     onHecha: (Boolean) -> Unit,
     onPagada: (Boolean) -> Unit,
     onCliente: () -> Unit,
+    repertorio: List<mx.arilabs.citas.datos.Cancion> = emptyList(),
+    equipo: List<String> = emptyList(),
+    onElegirCanciones: () -> Unit = {},
+    onTocar: () -> Unit = {},
+    onEquipo: (String, Boolean) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     var preguntarCancelar by remember { mutableStateOf(false) }
@@ -355,6 +373,10 @@ fun PantallaDetalle(
                     Text(
                         Mensajes.cuando(c.fecha, hoy).replaceFirstChar { it.uppercase() } + " · " + Mensajes.hora(c.hora),
                         style = MaterialTheme.typography.titleMedium, color = Color.White,
+                    )
+                    Text(
+                        "Dura ${Mensajes.duracion(c.duracion)} · termina ${Mensajes.horaCorta(c.termina())}",
+                        style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f),
                     )
                 }
             }
@@ -398,6 +420,65 @@ fun PantallaDetalle(
                     Dato("Precio", c.precio?.let { Mensajes.pesos(it) } ?: "")
                     Dato("Anticipo", c.anticipo?.let { Mensajes.pesos(it) } ?: "")
                     Dato("Notas", c.notas)
+                }
+            }
+        }
+        if (!c.cancelada) {
+            item {
+                val lista = c.canciones.mapNotNull { id -> repertorio.firstOrNull { it.id == id } }
+                Tarjeta(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("CANCIONES DEL EVENTO", style = MaterialTheme.typography.labelMedium, color = Papel.tenue)
+                        if (lista.isEmpty()) {
+                            Text("Aún no eliges qué tocar.", style = MaterialTheme.typography.bodyMedium, color = Papel.tenue)
+                        } else {
+                            lista.forEachIndexed { i, can ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("${i + 1}", style = MaterialTheme.typography.titleSmall, color = Papel.colorTipo(c.tipo), modifier = Modifier.padding(end = 12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(can.titulo, style = MaterialTheme.typography.bodyLarge)
+                                        Text(listOf(can.momento.nombre, can.tono).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = Papel.tenue)
+                                    }
+                                }
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Boton(if (lista.isEmpty()) "Elegir canciones" else "Cambiar", Modifier.weight(1f)) { onElegirCanciones() }
+                            if (lista.isNotEmpty()) Boton("Tocar", Modifier.weight(1f), primario = true) { onTocar() }
+                        }
+                    }
+                }
+            }
+            if (equipo.isNotEmpty()) {
+                item {
+                    val listos = equipo.count { it in c.equipoListo }
+                    Tarjeta(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(vertical = 8.dp)) {
+                            Text(
+                                "EQUIPO · $listos DE ${equipo.size} LISTOS",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (listos == equipo.size) Papel.verde else Papel.tenue,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            )
+                            equipo.forEach { cosa ->
+                                val listo = cosa in c.equipoListo
+                                Row(
+                                    Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                        .toggleable(value = listo, role = Role.Checkbox, onValueChange = { onEquipo(cosa, it) })
+                                        .padding(horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Checkbox(checked = listo, onCheckedChange = null)
+                                    Text(cosa, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 8.dp), color = if (listo) Papel.tenue else Papel.tinta)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Boton("Mandar cotización", Modifier.fillMaxWidth(), icono = Iconos.dinero) {
+                    Acciones.whatsapp(context, Mensajes.cotizacion(c, nombre, hoy), c.telefono)
                 }
             }
         }
@@ -563,9 +644,10 @@ fun PantallaBienvenida(onEmpezar: (String, Boolean) -> Unit) {
             Icon(Iconos.calendario, null, tint = Color.White, modifier = Modifier.size(40.dp))
         }
         Text("Mis citas", style = MaterialTheme.typography.displaySmall)
-        Text("Tu agenda de trabajo, ordenada sola.", style = MaterialTheme.typography.titleMedium, color = Papel.tenue)
+        Text("Tus eventos, tu música y tus cobros, en orden.", style = MaterialTheme.typography.titleMedium, color = Papel.tenue)
         listOf(
-            Triple(Iconos.chat, "Escribe como hablas", "“sábado 3pm, Chuburná, doña Mari” y la app la ordena."),
+            Triple(Iconos.chat, "Escribe como hablas", "“boda sábado 7pm, salón Los Almendros” y la app lo ordena."),
+            Triple(Iconos.musica, "Tu repertorio a la mano", "Las canciones de cada evento y un modo para tocar."),
             Triple(Icons.Filled.Place, "Llega sin perderte", "Maps y WhatsApp a un toque en cada cita."),
             Triple(Iconos.reloj, "Nunca se te pasa", "Te avisa una hora antes. Funciona sin internet."),
         ).forEach { (ic, t, d) ->

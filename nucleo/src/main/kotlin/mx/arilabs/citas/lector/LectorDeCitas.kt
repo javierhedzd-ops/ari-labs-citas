@@ -18,6 +18,8 @@ data class Borrador(
     val telefono: String = "",
     val precio: Int? = null,
     val anticipo: Int? = null,
+    /** Minutos que dura, si se dijo ("2 horas", "hora y media"). */
+    val duracion: Int? = null,
     val notas: String = "",
     val dudas: List<String> = emptyList(),
     val texto: String = "",
@@ -85,7 +87,15 @@ object LectorDeCitas {
         Regex("""\bnovenario\b|\bnovenas?\b""") to Tipo.NOVENA,
         Regex("""\bvelorios?\b|\bvelacion\b|\bvelada\b""") to Tipo.VELORIO,
         Regex("""\bmisas?\b""") to Tipo.MISA,
+        Regex("""\bmisas?\b|\bbautizos?\b|\bprimera\s+comunion\b|\bcomunion\b|\bconfirmacion\b""") to Tipo.MISA,
         Regex("""\brezos?\b|\brezar\b|\brosarios?\b|\bcabo\s+de\s+ano\b""") to Tipo.REZO,
+        Regex("""\bxv\b|\bquince\s+anos\b|\bquinceanera\b|\b15\s+anos\b""") to Tipo.XV,
+        Regex("""\bbodas?\b|\bcasamiento\b""") to Tipo.BODA,
+        Regex("""\bfiestas?\b|\bcumpleanos\b|\bcumple\b|\bposada\b|\bgraduacion\b|\bevento\b|\brecepcion\b""") to Tipo.FIESTA,
+    )
+    // "2 horas", "hora y media", "media hora", "90 minutos". "15 hrs" sigue siendo una hora del día.
+    private val reDuracion = Regex(
+        """\b(?:por\s+|de\s+|durante\s+)?(?:(hora\s+y\s+media)|(media\s+hora)|(una|dos|tres|\d(?:\.5)?)\s+horas?\b|(\d{2,3})\s*(?:minutos|min)\b)""",
     )
     private val reCliente = Regex("""\b(?:$HONORIFICO)\s+(?=[a-z])""")
     private val reClienteSuave = Regex("""\b(?:con|para|casa\s+de|de\s+parte\s+de)\s+(?=[a-z])""")
@@ -98,7 +108,7 @@ object LectorDeCitas {
         "en", "a", "al", "para", "con", "tel", "cel", "telefono", "celular", "whatsapp",
         "hoy", "manana", "pasado", "el", "este", "proximo",
         "rezo", "rezos", "rezar", "rosario", "novena", "novenas", "novenario", "velorio", "velorios",
-        "misa", "misas", "cabo", "anticipo", "adelanto", "cobro", "cobra", "precio", "dejo", "pesos",
+        "misa", "misas", "cabo", "boda", "bodas", "xv", "fiesta", "cumpleanos", "bautizo", "posada", "evento", "anticipo", "adelanto", "cobro", "cobra", "precio", "dejo", "pesos",
         "iglesia", "parroquia", "capilla", "funeraria", "panteon", "cementerio", "casa",
     ) + diasSemana.keys + meses
     private val conectores = setOf("de", "del", "la", "los", "las", "y")
@@ -110,6 +120,20 @@ object LectorDeCitas {
         val telefono = t.tomar(reTelefono)?.let { m -> m.value.filter(Char::isDigit).takeLast(10) } ?: ""
         val anticipo = t.tomar(reAnticipo)?.let { pesos(it.groupValues[1]) }
         val precio = t.tomar(rePrecio)?.let { m -> pesos(m.groupValues.drop(1).first { it.isNotEmpty() }) }
+
+        val duracion = t.tomar(reDuracion)?.let { m ->
+            when {
+                m.groupValues[1].isNotEmpty() -> 90
+                m.groupValues[2].isNotEmpty() -> 30
+                m.groupValues[3].isNotEmpty() -> when (m.groupValues[3]) {
+                    "una" -> 60; "dos" -> 120; "tres" -> 180
+                    else -> (m.groupValues[3].toDouble() * 60).toInt()
+                }
+                else -> m.groupValues[4].toInt()
+            }
+        }?.let { min ->
+            if (min > 120) { dudas += "Máximo 2 horas por evento: lo dejé en 2 horas."; 120 } else min
+        }
 
         val lugares = mutableListOf<String>()
         t.tomar(reCalle)?.let { lugares += t.original.substring(it.range).trim() }
@@ -166,7 +190,7 @@ object LectorDeCitas {
 
         if (fecha == null) dudas += "¿Qué día es?"
         if (hora == null) dudas += "¿A qué hora?"
-        if (tipo == null) dudas += "¿Es rezo, novena, velorio o misa?"
+        if (tipo == null) dudas += "¿Qué evento es? (misa, boda, XV, rezo…)"
         if (cliente.isEmpty()) dudas += "¿Con quién es la cita?"
         if (colonia.isNotEmpty() && zona == Zona.SIN_ZONA) dudas += "No conozco la colonia $colonia: escoge la zona."
         if (lugar.isEmpty() && colonia.isEmpty()) dudas += "¿Dónde es?"
@@ -183,6 +207,7 @@ object LectorDeCitas {
             telefono = telefono,
             precio = precio,
             anticipo = anticipo,
+            duracion = duracion,
             notas = resto.joinToString(", "),
             dudas = dudas,
             texto = texto.trim(),

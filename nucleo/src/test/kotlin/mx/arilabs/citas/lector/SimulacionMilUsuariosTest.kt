@@ -129,7 +129,7 @@ class SimulacionMilUsuariosTest {
         } else marca("hora", b.hora == null, d.any { it.startsWith("¿A qué hora") }) { "inventó hora ${b.hora}" }
 
         // Tipo
-        marca("tipo", b.tipo == e.tipo, e.tipo == null && b.tipo == null && d.any { it.startsWith("¿Es rezo") }) { "tipo ${b.tipo}, esperaba ${e.tipo}" }
+        marca("tipo", b.tipo == e.tipo, e.tipo == null && b.tipo == null && d.any { it.startsWith("¿Qué evento") }) { "tipo ${b.tipo}, esperaba ${e.tipo}" }
 
         // Cliente
         if (e.cliente != null) {

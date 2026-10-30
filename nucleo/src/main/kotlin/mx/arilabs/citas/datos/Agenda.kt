@@ -34,8 +34,15 @@ object Agenda {
     fun otrasDelDia(citas: List<Cita>, cita: Cita, dia: LocalDate = cita.fecha): List<Cita> =
         delDia(citas, dia).filter { it.id != cita.id }
 
-    fun choca(citas: List<Cita>, dia: LocalDate, hora: LocalTime, sinId: Long? = null): Cita? =
-        delDia(citas, dia).firstOrNull { it.id != sinId && it.hora == hora }
+    /** Otra cita del mismo día que se encima con [hora] durante [duracion] minutos. */
+    fun choca(citas: List<Cita>, dia: LocalDate, hora: LocalTime, sinId: Long? = null, duracion: Int = 60): Cita? {
+        val ini = hora.toSecondOfDay() / 60
+        val fin = ini + duracion
+        return delDia(citas, dia).firstOrNull { o ->
+            val oi = o.hora.toSecondOfDay() / 60
+            o.id != sinId && ini < oi + o.duracion && oi < fin
+        }
+    }
 
     data class Cobros(val cobrado: Int, val porCobrar: Int, val citas: Int, val pendientes: List<Cita>)
 

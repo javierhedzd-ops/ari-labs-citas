@@ -66,6 +66,9 @@ import mx.arilabs.citas.ui.PantallaCliente
 import mx.arilabs.citas.ui.PantallaDetalle
 import mx.arilabs.citas.ui.PantallaEscribir
 import mx.arilabs.citas.ui.PantallaFormulario
+import mx.arilabs.citas.ui.PantallaElegirCanciones
+import mx.arilabs.citas.ui.PantallaTocar
+import mx.arilabs.citas.ui.SeccionRepertorio
 import mx.arilabs.citas.ui.SeccionAgenda
 import mx.arilabs.citas.ui.SeccionCalendario
 import mx.arilabs.citas.ui.SeccionClientes
@@ -74,7 +77,7 @@ import mx.arilabs.citas.ui.TemaCitas
 import java.time.LocalDate
 import java.time.LocalTime
 
-private enum class Pestana(val nombre: String) { AGENDA("Agenda"), CALENDARIO("Calendario"), CLIENTES("Clientes"), COBROS("Cobros") }
+private enum class Pestana(val nombre: String) { AGENDA("Agenda"), CALENDARIO("Calendario"), REPERTORIO("Música"), CLIENTES("Clientes"), COBROS("Cobros") }
 
 private sealed interface Vista {
     val nivel: Int
@@ -87,6 +90,8 @@ private sealed interface Vista {
     data class Avisos(val titulo: String, val explicacion: String, val avisos: List<Aviso>) : Vista { override val nivel = 3 }
     data object Ajustes : Vista { override val nivel = 1 }
     data object Buscar : Vista { override val nivel = 1 }
+    data class ElegirCanciones(val id: Long) : Vista { override val nivel = 2 }
+    data class Tocar(val id: Long) : Vista { override val nivel = 2 }
 }
 
 class MainActivity : ComponentActivity() {
@@ -107,6 +112,8 @@ private fun App(almacen: Almacen) {
     val context = LocalContext.current
     val citas = remember { mutableStateListOf<Cita>().apply { addAll(almacen.leer()) } }
     var nombre by remember { mutableStateOf(almacen.nombre) }
+    val repertorio = remember { mutableStateListOf<mx.arilabs.citas.datos.Cancion>().apply { addAll(almacen.leerRepertorio()) } }
+    val equipo = remember { almacen.equipo }
     var vista by remember { mutableStateOf<Vista>(if (almacen.nombre.isBlank()) Vista.Bienvenida else Vista.Inicio) }
     var pestana by remember { mutableStateOf(Pestana.AGENDA) }
     // De dónde venimos, para que "Atrás" regrese al lugar correcto.
@@ -170,6 +177,17 @@ private fun App(almacen: Almacen) {
                     onBuscar = { ir(Vista.Buscar) },
                     onAjustes = { ir(Vista.Ajustes) },
                     onPagada = { reemplazar(it.copy(pagada = true)) },
+                    repertorio = repertorio,
+                    onGuardarCancion = { can ->
+                        val nueva = if (can.id == 0L) can.copy(id = (repertorio.maxOfOrNull { it.id } ?: 0L) + 1) else can
+                        val i = repertorio.indexOfFirst { it.id == nueva.id }
+                        if (i >= 0) repertorio[i] = nueva else repertorio.add(nueva)
+                        almacen.guardarRepertorio(repertorio.toList())
+                    },
+                    onBorrarCancion = { id ->
+                        repertorio.removeAll { it.id == id }
+                        almacen.guardarRepertorio(repertorio.toList())
+                    },
                 )
 
                 is Vista.Escribir -> Box(Modifier.safeDrawingPadding()) {
@@ -195,6 +213,9 @@ private fun App(almacen: Almacen) {
                                 textoOriginal = anterior?.textoOriginal ?: b.texto,
                                 hecha = anterior?.hecha ?: false,
                                 pagada = anterior?.pagada ?: false,
+                                duracion = (b.duracion ?: (b.tipo ?: Tipo.OTRO).duracion).coerceIn(15, mx.arilabs.citas.datos.DURACION_MAXIMA),
+                                canciones = anterior?.canciones ?: emptyList(),
+                                equipoListo = anterior?.equipoListo ?: emptySet(),
                             )
                             if (nueveDias) {
                                 // Novena: 9 noches seguidas a la misma hora. El precio y el anticipo van en la primera.
@@ -233,7 +254,7 @@ private fun App(almacen: Almacen) {
                                     Borrador(
                                         fecha = c.fecha, hora = c.hora, cliente = c.cliente, tipo = c.tipo, lugar = c.lugar,
                                         colonia = c.colonia, zona = c.zona, telefono = c.telefono, precio = c.precio,
-                                        anticipo = c.anticipo, notas = c.notas,
+                                        anticipo = c.anticipo, notas = c.notas, duracion = c.duracion,
                                     ),
                                     c.id,
                                 ))
@@ -271,6 +292,11 @@ private fun App(almacen: Almacen) {
                             onHecha = { reemplazar(c.copy(hecha = it)) },
                             onPagada = { reemplazar(c.copy(pagada = it)) },
                             onCliente = { ir(Vista.Cliente(c.cliente)) },
+                            repertorio = repertorio,
+                            equipo = equipo,
+                            onElegirCanciones = { ir(Vista.ElegirCanciones(c.id)) },
+                            onTocar = { ir(Vista.Tocar(c.id)) },
+                            onEquipo = { cosa, listo -> reemplazar(c.copy(equipoListo = if (listo) c.equipoListo + cosa else c.equipoListo - cosa)) },
                         )
                     }
                 }
@@ -315,6 +341,20 @@ private fun App(almacen: Almacen) {
                     )
                 }
 
+                is Vista.ElegirCanciones -> {
+                    val c = citas.firstOrNull { it.id == v.id }
+                    if (c == null) LaunchedEffect(v.id) { atras() } else Box(Modifier.safeDrawingPadding()) {
+                        PantallaElegirCanciones(c, repertorio, onAtras = { atras() }, onListo = { ids -> reemplazar(c.copy(canciones = ids)); atras() })
+                    }
+                }
+
+                is Vista.Tocar -> {
+                    val c = citas.firstOrNull { it.id == v.id }
+                    if (c == null) LaunchedEffect(v.id) { atras() } else {
+                        PantallaTocar(c, c.canciones.mapNotNull { id -> repertorio.firstOrNull { it.id == id } }, onSalir = { atras() })
+                    }
+                }
+
                 Vista.Buscar -> Box(Modifier.safeDrawingPadding()) {
                     PantallaBuscar(citas, hoy, onAtras = { atras() }, onVer = { ir(Vista.Detalle(it.id)) })
                 }
@@ -336,6 +376,9 @@ private fun Inicio(
     onBuscar: () -> Unit,
     onAjustes: () -> Unit,
     onPagada: (Cita) -> Unit,
+    repertorio: List<mx.arilabs.citas.datos.Cancion>,
+    onGuardarCancion: (mx.arilabs.citas.datos.Cancion) -> Unit,
+    onBorrarCancion: (Long) -> Unit,
 ) {
     Scaffold(
         containerColor = Papel.fondo,
@@ -345,6 +388,7 @@ private fun Inicio(
                     val icono: ImageVector = when (p) {
                         Pestana.AGENDA -> Icons.Outlined.Home
                         Pestana.CALENDARIO -> Iconos.calendario
+                        Pestana.REPERTORIO -> Iconos.musica
                         Pestana.CLIENTES -> Icons.Filled.Person
                         Pestana.COBROS -> Iconos.dinero
                     }
@@ -352,14 +396,14 @@ private fun Inicio(
                         selected = pestana == p,
                         onClick = { onPestana(p) },
                         icon = { Icon(icono, contentDescription = null) },
-                        label = { Text(p.nombre) },
+                        label = { Text(p.nombre, style = androidx.compose.material3.MaterialTheme.typography.labelSmall, maxLines = 1) },
                         colors = NavigationBarItemDefaults.colors(indicatorColor = Papel.azulSuave, selectedIconColor = Papel.azul, selectedTextColor = Papel.azul),
                     )
                 }
             }
         },
         floatingActionButton = {
-            AnimatedVisibility(pestana != Pestana.COBROS, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
+            AnimatedVisibility(pestana == Pestana.AGENDA || pestana == Pestana.CALENDARIO || pestana == Pestana.CLIENTES, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
                 ExtendedFloatingActionButton(
                     onClick = onNueva,
                     containerColor = Papel.azul,
@@ -379,6 +423,7 @@ private fun Inicio(
             when (p) {
                 Pestana.AGENDA -> SeccionAgenda(citas, hoy, nombre, onVer, onBuscar, onAjustes)
                 Pestana.CALENDARIO -> SeccionCalendario(citas, hoy, onVer)
+                Pestana.REPERTORIO -> SeccionRepertorio(repertorio, onGuardarCancion, onBorrarCancion)
                 Pestana.CLIENTES -> SeccionClientes(citas, hoy, onCliente)
                 Pestana.COBROS -> SeccionCobros(citas, hoy, onVer, onPagada)
             }

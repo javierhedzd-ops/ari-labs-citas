@@ -38,6 +38,9 @@ object Papel {
         Tipo.NOVENA -> Color(0xFF3F7A3A)
         Tipo.VELORIO -> Color(0xFF4A4A52)
         Tipo.MISA -> Color(0xFF8A3A3A)
+        Tipo.BODA -> Color(0xFF9A6B1F)
+        Tipo.XV -> Color(0xFFA03A78)
+        Tipo.FIESTA -> Color(0xFF1E7A7A)
         Tipo.OTRO -> Color(0xFF7A6A55)
     }
 
