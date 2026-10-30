@@ -5,7 +5,6 @@ import android.os.ParcelFileDescriptor
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -43,7 +42,11 @@ class RecorridoTest {
         shell("screencap -p /sdcard/capturas/%02d-%s.png".format(n, nombre))
     }
 
+    /** Espera a que el texto esté en pantalla (las animaciones pueden tardar) y lo toca. */
     private fun toca(texto: String) {
+        regla.waitUntil(8_000) { regla.onAllNodesWithText(texto).fetchSemanticsNodes().isNotEmpty() }
+        Thread.sleep(500)
+        regla.waitForIdle()
         regla.onAllNodesWithText(texto)[0].performClick()
         regla.waitForIdle()
     }
@@ -75,8 +78,7 @@ class RecorridoTest {
         foto("agenda-despues")
 
         toca("Clientes")
-        regla.onNodeWithText("doña Rosa").performClick()
-        regla.waitForIdle()
+        toca("doña Rosa")
         foto("cliente")
     }
 }
