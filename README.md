@@ -27,4 +27,6 @@ Modelo 1 de Ari Labs: app de citas para quien trabaja yendo a casas. Primer clie
 
 ## Estado
 
-En construcción. Aún no se ha compilado: el workflow `Compilar APK` es solo manual y se lanza cuando todo esté listo.
+- 0.1.0 compilada en verde (Actions, run 41031138079): APK de prueba `ari-labs-citas-debug`.
+- Simulación de 1000 usuarios: 0 % de errores sin avisar en todos los campos; 566 de 1000 citas entendidas completas sin preguntar nada (el resto pregunta lo que falta o es dudoso).
+- Falta: probarla en teléfonos reales (el tío y 5 a 10 personas que trabajen a domicilio) y firmar una versión de entrega.
