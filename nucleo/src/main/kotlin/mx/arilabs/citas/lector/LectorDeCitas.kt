@@ -67,7 +67,7 @@ object LectorDeCitas {
         """\b(?:calle|c\.|c)\s*\d{1,3}[a-z]?(?:\s*(?:#|num\.?|numero|no\.)\s*\d{1,4}[a-z]?)?""" +
             """(?:\s*(?:x|por)\s*\d{1,3}[a-z]?(?:\s*y\s*\d{1,3}[a-z]?)?)?""",
     )
-    private val reSitio = Regex("""\b(?:iglesia|parroquia|capilla|funeraria|velatorio|panteon|cementerio|templo|catedral|ermita|salon)\b""")
+    private val reSitio = Regex("""\b(?:iglesia|parroquia|capilla|funeraria|velatorio|panteon|cementerio|templo|catedral|salon)\b""")
     private val reAvenida = Regex("""\b(?:av\.|avenida|periferico|prolongacion|privada|carretera)\s+""")
     private val reHora = Regex(
         """(?:\b(?:a\s+)?las?\s+)?\b(\d{1,2})(?:[:.](\d{2}))?\s*""" +
@@ -142,7 +142,9 @@ object LectorDeCitas {
         if (colonia.isEmpty()) colonia = t.tomarColoniaConocida() ?: ""
         // "iglesia de Santiago": el lugar ya dice el barrio.
         if (colonia.isEmpty()) colonia = lugares.firstNotNullOfOrNull { Colonias.buscarEn(it) } ?: ""
-        colonia = limpiar(colonia)
+        // Sin quitar "La" de "La Mejorada"; y con el nombre completo si se conoce ("Colonia Yucatán").
+        colonia = colonia.trim().trim(',', ';', '.', ':', '-', ' ')
+        colonia = Colonias.canonica(colonia) ?: colonia
         val zona = Colonias.zonaDe(colonia)
 
         var resto = t.sobras().map(::limpiar).filter { s -> s.any(Char::isLetterOrDigit) && Texto.plano(s) !in paradas }

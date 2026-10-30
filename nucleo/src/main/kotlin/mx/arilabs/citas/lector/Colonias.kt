@@ -59,6 +59,14 @@ object Colonias {
             ?: Zona.SIN_ZONA
     }
 
+    /** El nombre completo de una colonia conocida: "yucatan" -> "Colonia Yucatán". Null si no se conoce. */
+    fun canonica(colonia: String): String? {
+        val n = normalizar(colonia)
+        if (n.isBlank()) return null
+        return indice.firstOrNull { it.first == n }?.second
+            ?: indice.firstOrNull { n.length >= 5 && it.first.endsWith(" $n") }?.second
+    }
+
     /** Todas las colonias con su zona (para pruebas y para la lista de la app). */
     fun todas(): List<Pair<String, Zona>> = indice.map { it.second to it.third }
 

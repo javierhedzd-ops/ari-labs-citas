@@ -89,7 +89,7 @@ class SimulacionMilUsuariosTest {
         for ((c, max) in limites) {
             val n = total.getValue(c).coerceAtLeast(1)
             val pct = 100.0 * callados.getValue(c) / n
-            assertTrue("Demasiados errores sin avisar en $c: %.1f%% (máximo $max%%)\n$reporte".format(pct), pct <= max)
+            assertTrue("Demasiados errores sin avisar en $c: " + "%.1f".format(pct) + "% (máximo $max%)\n" + reporte, pct <= max)
         }
     }
 
