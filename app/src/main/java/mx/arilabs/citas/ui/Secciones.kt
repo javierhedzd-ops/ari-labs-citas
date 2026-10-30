@@ -92,7 +92,7 @@ fun SeccionAgenda(citas: List<Cita>, hoy: LocalDate, nombre: String, onVer: (Cit
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
                     Text(Mensajes.fecha(hoy).uppercase(), style = MaterialTheme.typography.labelMedium, color = Papel.tenue)
-                    Text(saludo(ahora, nombre), style = MaterialTheme.typography.displaySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(saludo(ahora, nombre), style = MaterialTheme.typography.headlineMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 IconButton(onClick = onBuscar) { Icon(Icons.Filled.Search, contentDescription = "Buscar", tint = Papel.azul) }
                 IconButton(onClick = onAjustes) { Icon(Icons.Outlined.Settings, contentDescription = "Ajustes", tint = Papel.azul) }
@@ -441,7 +441,8 @@ fun SeccionCobros(citas: List<Cita>, hoy: LocalDate, onVer: (Cita) -> Unit, onPa
                         Cifra("Por cobrar", Mensajes.pesos(rr.porCobrar), if (rr.porCobrar > 0) Papel.aviso else Papel.tenue, Modifier.weight(1f))
                     }
                     Text(
-                        "${rr.citas} citas del ${desde.dayOfMonth} al ${hasta.dayOfMonth} de ${Mensajes.fecha(hasta).substringAfter(" de ")}",
+                        "${rr.citas} citas del " + (if (desde.month == hasta.month) "${desde.dayOfMonth}" else Mensajes.fecha(desde).substringAfter(" ")) +
+                            " al ${Mensajes.fecha(hasta).substringAfter(" ")}",
                         style = MaterialTheme.typography.bodyMedium, color = Papel.tenue,
                     )
                 }

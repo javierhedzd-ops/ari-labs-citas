@@ -58,11 +58,6 @@ class RecorridoTest {
         toca("Empezar")
         foto("agenda")
 
-        toca("Calendario"); foto("calendario")
-        toca("Clientes"); foto("clientes")
-        toca("Cobros"); foto("cobros")
-        toca("Agenda")
-
         toca("Nueva cita")
         foto("nueva-cita")
         regla.onAllNodes(hasSetTextAction())[0].performTextInput("sábado 3pm novena colonia Chuburná doña Rosa 9991234567 \$600 anticipo 200")
@@ -80,5 +75,12 @@ class RecorridoTest {
         toca("Clientes")
         toca("doña Rosa")
         foto("cliente")
+        toca("Atrás")
+        toca("Calendario"); foto("calendario")
+        toca("Clientes"); foto("clientes")
+        toca("Cobros"); foto("cobros")
+
+        toca("Música"); foto("musica")
+        toca("Agenda"); foto("final")
     }
 }

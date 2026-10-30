@@ -198,7 +198,8 @@ fun TarjetaCita(c: Cita, mostrarFecha: String? = null, onClick: () -> Unit) {
                         c.porCobrar() > 0 -> Etiqueta("Falta ${Mensajes.pesos(c.porCobrar())}", Papel.aviso)
                     }
                 }
-                val donde = listOf(c.colonia, if (c.zona != Zona.SIN_ZONA) c.zona.nombre else "").filter { it.isNotBlank() }.joinToString(" · ")
+                val zona = if (c.zona != Zona.SIN_ZONA && !c.colonia.equals(c.zona.nombre, ignoreCase = true)) "zona ${c.zona.nombre}" else ""
+                val donde = listOf(c.colonia, zona).filter { it.isNotBlank() }.joinToString(" · ")
                 if (donde.isNotBlank()) Text(donde, style = MaterialTheme.typography.bodySmall, color = Papel.tenue, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (c.hecha && !c.cancelada) {
