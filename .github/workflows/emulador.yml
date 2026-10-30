@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   emulador:
@@ -39,6 +39,18 @@ jobs:
             ./gradlew --no-daemon :app:connectedDebugAndroidTest || touch fallo
             adb pull /sdcard/capturas capturas || true
             test ! -f fallo
+
+      - name: Subir capturas a la rama "capturas"
+        if: always()
+        run: |
+          [ -d capturas ] || exit 0
+          mkdir -p /tmp/c && cp capturas/*.png /tmp/c/ 2>/dev/null || exit 0
+          git config user.name "ari-labs-bot" && git config user.email "ari-labs-bot@users.noreply.github.com"
+          git checkout --orphan capturas-tmp
+          git rm -rfq . && rm -rf ./*
+          cp /tmp/c/*.png .
+          git add *.png && git commit -qm "Capturas del emulador (${GITHUB_SHA::7})"
+          git push -f origin HEAD:capturas
 
       - uses: actions/upload-artifact@v4
         if: always()
