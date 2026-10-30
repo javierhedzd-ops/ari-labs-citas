@@ -34,7 +34,7 @@ object Recordatorios {
         }
         val ahora = LocalDateTime.now()
         val programadas = mutableSetOf<String>()
-        citas.filter { !it.cancelada }
+        citas.filter { !it.cancelada && !it.hecha && it.id > 0 }
             .map { it to LocalDateTime.of(it.fecha, it.hora).minusMinutes(ANTES_MIN) }
             .filter { (_, cuando) -> cuando.isAfter(ahora) && cuando.isBefore(ahora.plusDays(45)) }
             .forEach { (c, cuando) ->

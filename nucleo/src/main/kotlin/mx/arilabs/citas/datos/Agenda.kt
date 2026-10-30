@@ -36,4 +36,51 @@ object Agenda {
 
     fun choca(citas: List<Cita>, dia: LocalDate, hora: LocalTime, sinId: Long? = null): Cita? =
         delDia(citas, dia).firstOrNull { it.id != sinId && it.hora == hora }
+
+    data class Cobros(val cobrado: Int, val porCobrar: Int, val citas: Int, val pendientes: List<Cita>)
+
+    /** Dinero entre [desde] y [hasta] (incluidos). */
+    fun cobros(citas: List<Cita>, desde: LocalDate, hasta: LocalDate): Cobros {
+        val rango = citas.filter { !it.fecha.isBefore(desde) && !it.fecha.isAfter(hasta) }
+        return Cobros(
+            cobrado = rango.sumOf { it.cobrado() },
+            porCobrar = rango.sumOf { it.porCobrar() },
+            citas = rango.count { !it.cancelada },
+            pendientes = rango.filter { it.porCobrar() > 0 }.sortedWith(compareBy({ it.fecha }, { it.hora })),
+        )
+    }
+
+    data class Cliente(
+        val nombre: String,
+        val telefono: String,
+        val colonia: String,
+        val citas: List<Cita>,
+        val ultima: Cita?,
+        val proxima: Cita?,
+    )
+
+    /** Clientes agrupados por nombre (sin importar mayúsculas ni acentos), los de cita más reciente primero. */
+    fun clientes(citas: List<Cita>, hoy: LocalDate): List<Cliente> =
+        citas.filter { it.cliente.isNotBlank() }
+            .groupBy { mx.arilabs.citas.lector.Colonias.normalizar(it.cliente) }
+            .values
+            .map { lista ->
+                val orden = lista.sortedWith(compareBy({ it.fecha }, { it.hora }))
+                val pasadas = orden.filter { it.fecha.isBefore(hoy) || it.hecha }
+                val futuras = orden.filter { !it.fecha.isBefore(hoy) && !it.cancelada && !it.hecha }
+                Cliente(
+                    nombre = orden.last().cliente,
+                    telefono = orden.lastOrNull { it.telefono.isNotBlank() }?.telefono ?: "",
+                    colonia = orden.lastOrNull { it.colonia.isNotBlank() }?.colonia ?: "",
+                    citas = orden.reversed(),
+                    ultima = pasadas.lastOrNull(),
+                    proxima = futuras.firstOrNull(),
+                )
+            }
+            .sortedByDescending { c -> c.citas.maxOf { it.fecha } }
+
+    /** La siguiente cita activa desde este momento. */
+    fun proxima(citas: List<Cita>, ahora: java.time.LocalDateTime): Cita? =
+        citas.filter { !it.cancelada && !it.hecha && !java.time.LocalDateTime.of(it.fecha, it.hora).isBefore(ahora.minusMinutes(30)) }
+            .minByOrNull { java.time.LocalDateTime.of(it.fecha, it.hora) }
 }

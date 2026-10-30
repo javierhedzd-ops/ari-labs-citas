@@ -46,6 +46,10 @@ data class Cita(
     val anticipoAlCancelar: Anticipo? = null,
     /** Lo que el tío escribió, tal cual, por si algo se entendió mal. */
     val textoOriginal: String = "",
+    /** Ya se hizo (el rezo, la misa...). */
+    val hecha: Boolean = false,
+    /** Ya se cobró todo lo que faltaba. */
+    val pagada: Boolean = false,
 ) {
     /** Lo que se busca en Maps: dirección, colonia y ciudad. */
     fun direccionParaMapa(): String =
@@ -58,4 +62,18 @@ data class Cita(
         val p = precio ?: return null
         return p - (anticipo ?: 0)
     }
+
+    /** Lo que ya entró a la bolsa por esta cita. */
+    fun cobrado(): Int {
+        val a = anticipo ?: 0
+        return when {
+            cancelada -> if (anticipoAlCancelar == Anticipo.SE_QUEDA || anticipoAlCancelar == Anticipo.OTRA_FECHA) a else 0
+            pagada -> maxOf(precio ?: 0, a)
+            else -> a
+        }
+    }
+
+    /** Lo que falta cobrar (0 si está cancelada o pagada). */
+    fun porCobrar(): Int =
+        if (cancelada || pagada) 0 else maxOf(0, (precio ?: 0) - (anticipo ?: 0))
 }

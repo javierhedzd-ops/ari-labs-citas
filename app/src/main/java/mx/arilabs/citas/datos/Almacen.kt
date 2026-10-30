@@ -80,6 +80,8 @@ class Almacen(context: Context) {
         put("cancelada", c.cancelada)
         c.anticipoAlCancelar?.let { put("anticipoAlCancelar", it.name) }
         put("textoOriginal", c.textoOriginal)
+        put("hecha", c.hecha)
+        put("pagada", c.pagada)
     }
 
     private fun desdeJson(o: JSONObject) = Cita(
@@ -99,5 +101,7 @@ class Almacen(context: Context) {
         anticipoAlCancelar = o.optString("anticipoAlCancelar").takeIf { it.isNotEmpty() }
             ?.let { runCatching { Anticipo.valueOf(it) }.getOrNull() },
         textoOriginal = o.optString("textoOriginal"),
+        hecha = o.optBoolean("hecha"),
+        pagada = o.optBoolean("pagada"),
     )
 }
