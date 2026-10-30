@@ -44,6 +44,26 @@ class Almacen(context: Context) {
 
     fun siguienteId(citas: List<Cita>): Long = (citas.maxOfOrNull { it.id } ?: 0L) + 1
 
+    /** Copia de todas las citas en texto, para mandarla por WhatsApp a uno mismo. */
+    fun exportar(citas: List<Cita>): String {
+        val arr = JSONArray()
+        citas.forEach { arr.put(aJson(it)) }
+        return JSONObject().put("app", "mis-citas").put("version", 1).put("citas", arr).toString()
+    }
+
+    /** Lee una copia pegada. Devuelve null si el texto no es una copia válida. */
+    fun importar(texto: String): List<Cita>? {
+        val inicio = texto.indexOf('{')
+        val fin = texto.lastIndexOf('}')
+        if (inicio < 0 || fin <= inicio) return null
+        return runCatching {
+            val o = JSONObject(texto.substring(inicio, fin + 1))
+            if (o.optString("app") != "mis-citas") return null
+            val arr = o.getJSONArray("citas")
+            (0 until arr.length()).mapNotNull { i -> runCatching { desdeJson(arr.getJSONObject(i)) }.getOrNull() }
+        }.getOrNull()
+    }
+
     private fun aJson(c: Cita) = JSONObject().apply {
         put("id", c.id)
         put("fecha", c.fecha.toString())

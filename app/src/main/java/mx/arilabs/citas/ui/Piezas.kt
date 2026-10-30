@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -99,7 +100,7 @@ fun TarjetaCita(c: Cita, onClick: () -> Unit) {
             .clickable(role = Role.Button, onClickLabel = "Ver la cita", onClick = onClick),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
-            Column(Modifier.width(92.dp)) {
+            Column(Modifier.widthIn(min = 92.dp).padding(end = 12.dp)) {
                 Text(
                     Mensajes.horaCorta(c.hora),
                     style = MaterialTheme.typography.titleLarge,

@@ -53,8 +53,22 @@ object Colonias {
         val n = normalizar(colonia)
         if (n.isBlank()) return Zona.SIN_ZONA
         return indice.firstOrNull { it.first == n }?.third
-            ?: indice.firstOrNull { n.contains(it.first) }?.third
+            ?: indice.firstOrNull { (" $n ").contains(" ${it.first} ") }?.third
+            // "Parque" por "Fraccionamiento del Parque", "Yucatán" por "Colonia Yucatán".
+            ?: indice.firstOrNull { n.length >= 5 && it.first.endsWith(" $n") }?.third
             ?: Zona.SIN_ZONA
+    }
+
+    /** Todas las colonias con su zona (para pruebas y para la lista de la app). */
+    fun todas(): List<Pair<String, Zona>> = indice.map { it.second to it.third }
+
+    /** (nombre bonito, nombre normalizado), del más largo al más corto. */
+    fun porLargo(): List<Pair<String, String>> = indice.map { it.second to it.first }
+
+    /** ¿Empieza el nombre de una colonia conocida en la posición [i] de un texto plano? */
+    fun empiezaEn(plano: String, i: Int): Boolean {
+        val resto = plano.substring(i).replace(Regex("[^a-z0-9 ]"), " ") + " "
+        return indice.any { it.first.length >= 5 && resto.startsWith(it.first + " ") }
     }
 
     /** Busca una colonia conocida dentro de un texto libre. Devuelve el nombre bonito. */

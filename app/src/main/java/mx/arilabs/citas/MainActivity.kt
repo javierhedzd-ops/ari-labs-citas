@@ -1,6 +1,10 @@
 package mx.arilabs.citas
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -33,6 +37,7 @@ import mx.arilabs.citas.ui.PantallaAvisos
 import mx.arilabs.citas.ui.PantallaDetalle
 import mx.arilabs.citas.ui.PantallaEscribir
 import mx.arilabs.citas.ui.PantallaFormulario
+import mx.arilabs.citas.ui.PantallaTodas
 import mx.arilabs.citas.ui.TemaCitas
 import java.time.LocalDate
 
@@ -43,6 +48,7 @@ private sealed interface Vista {
     data class Detalle(val id: Long) : Vista
     data class Avisos(val titulo: String, val explicacion: String, val avisos: List<Aviso>) : Vista
     data object Ajustes : Vista
+    data object Todas : Vista
 }
 
 class MainActivity : ComponentActivity() {
@@ -68,7 +74,20 @@ private fun App(almacen: Almacen) {
     var vista by remember { mutableStateOf<Vista>(if (almacen.nombre.isBlank()) Vista.Ajustes else Vista.Agenda) }
     val hoy = LocalDate.now()
 
-    fun guardarTodo() = almacen.guardar(citas.toList())
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    fun guardarTodo() {
+        almacen.guardar(citas.toList())
+        Recordatorios.reprogramar(context, citas.toList())
+    }
+
+    // Permiso de avisos (Android 13+), una sola vez y ya con el nombre puesto.
+    val pedirAvisos = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(nombre.isNotBlank()) {
+        Recordatorios.crearCanal(context)
+        Recordatorios.reprogramar(context, citas.toList())
+        if (nombre.isNotBlank() && Build.VERSION.SDK_INT >= 33) pedirAvisos.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
 
     fun reemplazar(c: Cita) {
         val i = citas.indexOfFirst { it.id == c.id }
@@ -89,7 +108,15 @@ private fun App(almacen: Almacen) {
             hoy = hoy,
             onNueva = { vista = Vista.Escribir },
             onVer = { vista = Vista.Detalle(it.id) },
+            onBuscar = { vista = Vista.Todas },
             onAjustes = { vista = Vista.Ajustes },
+        )
+
+        Vista.Todas -> PantallaTodas(
+            citas = citas,
+            hoy = hoy,
+            onAtras = { vista = Vista.Agenda },
+            onVer = { vista = Vista.Detalle(it.id) },
         )
 
         Vista.Escribir -> PantallaEscribir(
@@ -103,7 +130,7 @@ private fun App(almacen: Almacen) {
             citas = citas,
             editandoId = v.editandoId,
             onAtras = { vista = if (v.editandoId != null) Vista.Detalle(v.editandoId) else Vista.Escribir },
-            onGuardar = { b ->
+            onGuardar = { b, nueveDias ->
                 val anterior = v.editandoId?.let { id -> citas.firstOrNull { it.id == id } }
                 val cita = Cita(
                     id = anterior?.id ?: almacen.siguienteId(citas),
@@ -122,7 +149,22 @@ private fun App(almacen: Almacen) {
                     anticipoAlCancelar = anterior?.anticipoAlCancelar,
                     textoOriginal = anterior?.textoOriginal ?: b.texto,
                 )
-                reemplazar(cita)
+                if (nueveDias) {
+                    // Novena: 9 noches seguidas a la misma hora. El precio y el anticipo van en la primera.
+                    (0 until 9).forEach { n ->
+                        val noche = cita.copy(
+                            id = cita.id + n,
+                            fecha = cita.fecha.plusDays(n.toLong()),
+                            precio = if (n == 0) cita.precio else null,
+                            anticipo = if (n == 0) cita.anticipo else null,
+                            notas = listOf("Novena, día ${n + 1} de 9", cita.notas).filter { it.isNotBlank() }.joinToString(". "),
+                        )
+                        citas.add(noche)
+                    }
+                    guardarTodo()
+                } else {
+                    reemplazar(cita)
+                }
                 vista = Vista.Detalle(cita.id)
             },
         )
@@ -164,6 +206,11 @@ private fun App(almacen: Almacen) {
                             avisos = avisos,
                         )
                     },
+                    onBorrar = {
+                        citas.removeAll { it.id == c.id }
+                        guardarTodo()
+                        vista = Vista.Agenda
+                    },
                     onCancelar = { anticipo: Anticipo ->
                         val cancelada = c.copy(cancelada = true, anticipoAlCancelar = anticipo)
                         reemplazar(cancelada)
@@ -187,6 +234,20 @@ private fun App(almacen: Almacen) {
                 almacen.nombre = n
                 nombre = n.trim()
                 vista = Vista.Agenda
+            },
+            onCopia = { "Copia de Mis citas (${Mensajes.fecha(hoy)}). Guárdala, no la borres:\n" + almacen.exportar(citas.toList()) },
+            onRecuperar = { texto ->
+                val copia = almacen.importar(texto)
+                if (copia == null) {
+                    "Eso no parece una copia de Mis citas."
+                } else {
+                    // Solo se agregan las que no están (mismo día, hora y cliente).
+                    val nuevas = copia.filter { c -> citas.none { it.fecha == c.fecha && it.hora == c.hora && it.cliente == c.cliente } }
+                    var siguiente = almacen.siguienteId(citas)
+                    nuevas.forEach { c -> citas.add(c.copy(id = siguiente++)) }
+                    guardarTodo()
+                    if (nuevas.isEmpty()) "Ya tenías todas las citas de esa copia." else "Recuperé ${nuevas.size} citas."
+                }
             },
         )
     }

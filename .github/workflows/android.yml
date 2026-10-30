@@ -24,8 +24,17 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Pruebas
-        run: ./gradlew --no-daemon :app:testDebugUnitTest
+      - name: Pruebas (incluye 1000 usuarios simulados)
+        run: ./gradlew --no-daemon :nucleo:test
+
+      - name: Reporte de la simulación
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulacion-1000
+          path: |
+            nucleo/build/reports/simulacion-1000.txt
+            nucleo/build/reports/tests/
 
       - name: APK
         run: ./gradlew --no-daemon :app:assembleDebug

@@ -15,4 +15,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "AriLabsCitas"
+include(":nucleo")
 include(":app")

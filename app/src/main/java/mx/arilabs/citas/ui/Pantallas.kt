@@ -20,6 +20,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -57,6 +60,7 @@ fun PantallaAgenda(
     hoy: LocalDate,
     onNueva: () -> Unit,
     onVer: (Cita) -> Unit,
+    onBuscar: () -> Unit,
     onAjustes: () -> Unit,
 ) {
     var porZona by remember { mutableStateOf(false) }
@@ -65,6 +69,9 @@ fun PantallaAgenda(
 
     Column(Modifier.fillMaxSize()) {
         Encabezado("Mis citas", extra = {
+            TextButton(onClick = onBuscar, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text("Buscar", style = MaterialTheme.typography.labelLarge, color = Papel.azul)
+            }
             TextButton(onClick = onAjustes, modifier = Modifier.heightIn(min = 48.dp)) {
                 Text("Ajustes", style = MaterialTheme.typography.labelLarge, color = Papel.azul)
             }
@@ -186,9 +193,10 @@ fun PantallaFormulario(
     citas: List<Cita>,
     editandoId: Long?,
     onAtras: () -> Unit,
-    onGuardar: (Borrador) -> Unit,
+    onGuardar: (Borrador, Boolean) -> Unit,
 ) {
     val context = LocalContext.current
+    var nueveDias by remember { mutableStateOf(false) }
     var fecha by remember { mutableStateOf(inicial.fecha) }
     var hora by remember { mutableStateOf(inicial.hora) }
     var cliente by remember { mutableStateOf(inicial.cliente) }
@@ -250,6 +258,23 @@ fun PantallaFormulario(
                 }
             }
 
+            if (tipo == Tipo.NOVENA && editandoId == null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp)
+                        .toggleable(value = nueveDias, role = Role.Checkbox, onValueChange = { nueveDias = it }),
+                ) {
+                    Checkbox(checked = nueveDias, onCheckedChange = null)
+                    Text(
+                        "Son 9 días seguidos: apuntar las 9 noches",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+            }
+
             Campo("Cliente", cliente) { cliente = it }
             Campo("Dirección", lugar) { lugar = it }
             Campo("Colonia", colonia) {
@@ -294,6 +319,7 @@ fun PantallaFormulario(
                     lugar = lugar.trim(), colonia = colonia.trim(), zona = zona, telefono = telefono.trim(),
                     precio = precio.toIntOrNull(), anticipo = anticipo.toIntOrNull(), notas = notas.trim(),
                 ),
+                nueveDias && tipo == Tipo.NOVENA && editandoId == null,
             )
         }
     }
@@ -329,9 +355,11 @@ fun PantallaDetalle(
     onEditar: () -> Unit,
     onMover: (LocalDate, LocalTime) -> Unit,
     onCancelar: (Anticipo) -> Unit,
+    onBorrar: () -> Unit,
 ) {
     val context = LocalContext.current
     var preguntarCancelar by remember { mutableStateOf(false) }
+    var preguntarBorrar by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         Encabezado(c.tipo.nombre, atras = onAtras)
@@ -380,8 +408,21 @@ fun PantallaDetalle(
             if (c.textoOriginal.isNotBlank()) {
                 Text("Lo que escribiste: “${c.textoOriginal}”", style = MaterialTheme.typography.bodyMedium, color = Papel.tenue)
             }
+            TextButton(onClick = { preguntarBorrar = true }, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text("Borrar (la apunté por error)", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error)
+            }
             Spacer(Modifier.height(16.dp))
         }
+    }
+
+    if (preguntarBorrar) {
+        AlertDialog(
+            onDismissRequest = { preguntarBorrar = false },
+            title = { Text("¿Borrar esta cita?") },
+            text = { Text("Se quita de tu agenda para siempre. Si el cliente canceló, mejor usa Cancelar.", style = MaterialTheme.typography.bodyLarge) },
+            confirmButton = { TextButton(onClick = { preguntarBorrar = false; onBorrar() }) { Text("Sí, borrar") } },
+            dismissButton = { TextButton(onClick = { preguntarBorrar = false }) { Text("No") } },
+        )
     }
 
     if (preguntarCancelar) {
@@ -473,11 +514,24 @@ fun PantallaAvisos(titulo: String, explicacion: String, avisos: List<Aviso>, onL
 // ---------------------------------------------------------------- Ajustes
 
 @Composable
-fun PantallaAjustes(nombre: String, primeraVez: Boolean, onAtras: () -> Unit, onGuardar: (String) -> Unit) {
+fun PantallaAjustes(
+    nombre: String,
+    primeraVez: Boolean,
+    onAtras: () -> Unit,
+    onGuardar: (String) -> Unit,
+    onCopia: () -> String,
+    onRecuperar: (String) -> String,
+) {
+    val context = LocalContext.current
     var valor by remember { mutableStateOf(nombre) }
+    var pegado by remember { mutableStateOf("") }
+    var resultado by remember { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
         Encabezado(if (primeraVez) "Para empezar" else "Ajustes", atras = if (primeraVez) null else onAtras)
-        Column(Modifier.weight(1f).padding(margen), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(margen),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             Text(
                 "¿Cómo firmas tus mensajes? Va al inicio de cada aviso: “Le escribe …”.",
                 style = MaterialTheme.typography.bodyLarge,
@@ -491,11 +545,76 @@ fun PantallaAjustes(nombre: String, primeraVez: Boolean, onAtras: () -> Unit, on
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                "Todo se guarda solo en este teléfono. La app no usa internet.",
+                "Todo se guarda solo en este teléfono. La app no usa internet. Te aviso una hora antes de cada cita.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Papel.tenue,
             )
+            if (!primeraVez) {
+                Spacer(Modifier.height(8.dp))
+                Text("Copia de tus citas", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "Si cambias o pierdes el teléfono, con la copia recuperas todo. Mándatela por WhatsApp de vez en cuando.",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Boton("Mandarme la copia por WhatsApp", Modifier.fillMaxWidth()) { Acciones.whatsapp(context, onCopia()) }
+                OutlinedTextField(
+                    value = pegado,
+                    onValueChange = { pegado = it },
+                    label = { Text("Pega aquí una copia para recuperarla") },
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    maxLines = 4,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Boton("Recuperar la copia", Modifier.fillMaxWidth(), activo = pegado.isNotBlank()) {
+                    resultado = onRecuperar(pegado)
+                    pegado = ""
+                }
+                if (resultado.isNotBlank()) Text(resultado, style = MaterialTheme.typography.bodyLarge, color = Papel.azul)
+            }
         }
         Boton("Guardar", Modifier.fillMaxWidth().padding(16.dp), primario = true, activo = valor.isNotBlank()) { onGuardar(valor) }
+    }
+}
+
+// ---------------------------------------------------------------- Buscar
+
+@Composable
+fun PantallaTodas(citas: List<Cita>, hoy: LocalDate, onAtras: () -> Unit, onVer: (Cita) -> Unit) {
+    var buscar by remember { mutableStateOf("") }
+    val q = Colonias.normalizar(buscar)
+    val lista = citas
+        .filter { c ->
+            q.isBlank() || Colonias.normalizar(listOf(c.cliente, c.colonia, c.lugar, c.telefono, c.tipo.nombre, c.notas).joinToString(" ")).contains(q)
+        }
+        .sortedWith(compareBy<Cita> { it.fecha.isBefore(hoy) }.thenBy { if (it.fecha.isBefore(hoy)) -it.fecha.toEpochDay() else it.fecha.toEpochDay() }.thenBy { it.hora })
+    Column(Modifier.fillMaxSize()) {
+        Encabezado("Todas las citas", atras = onAtras)
+        OutlinedTextField(
+            value = buscar,
+            onValueChange = { buscar = it },
+            label = { Text("Buscar por nombre, colonia o teléfono") },
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        )
+        LazyColumn(
+            Modifier.weight(1f),
+            contentPadding = margen,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (lista.isEmpty()) {
+                item { Text(if (citas.isEmpty()) "Aún no tienes citas." else "No encontré nada.", style = MaterialTheme.typography.bodyLarge, color = Papel.tenue) }
+            }
+            items(lista, key = { it.id }) { c ->
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        Mensajes.cuando(c.fecha, hoy).replaceFirstChar { it.uppercase() } + if (c.fecha.isBefore(hoy)) " (ya pasó)" else "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Papel.tenue,
+                    )
+                    TarjetaCita(c) { onVer(c) }
+                }
+            }
+        }
     }
 }

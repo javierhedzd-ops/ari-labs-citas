@@ -27,6 +27,10 @@ data class Borrador(
  * Ordena una cita escrita como salga ("sábado 3pm, colonia Chuburná, doña Mari").
  * Todo con reglas, sin internet ni inteligencia artificial: lo que no entienda lo
  * deja como duda para que el tío lo confirme antes de guardar.
+ *
+ * El orden importa: primero lo que tiene forma fija (teléfono, dinero, dirección),
+ * luego hora y fecha, luego el cliente (antes que el tipo, por "doña Rosario"), y al
+ * final la colonia y lo que sobre.
  */
 object LectorDeCitas {
 
@@ -43,14 +47,28 @@ object LectorDeCitas {
     )
 
     private const val NUM = """\d{1,3}(?:,\d{3})+|\d{2,6}"""
+    private const val HONORIFICO =
+        """dona|don|sra\.?|sr\.?|senora|senor|srita\.?|senorita|familia|fam\.|hermana|hermano|""" +
+            """maestra|maestro|profesora|profesor|profe|lic\.?|ing\.?|dra\.?|dr\.?|tia|tio|abuelita|abuelito"""
 
-    private val reTelefono = Regex("""(?<!\d)(?:\+?52[\s-]?)?(?:\d[\s-]?){9}\d(?!\d)""")
-    private val reAnticipo = Regex("""\b(?:anticipo|adelanto|dejo|abono|abonaron|dejaron)\s*(?:de\s*)?\$?\s*($NUM)(?:\s*pesos)?""")
+    // Formas comunes en México: 9991234567, 999 123 4567, 999-123-45-67, 99 9123 4567.
+    // Nunca juntar números sueltos ("calle 32 9991234567" no es "32 99912345").
+    private val reTelefono = Regex(
+        """(?<![\d/#$,.])(?:\+?52[\s-]?)?""" +
+            """(?:\d{10}|\d{3}[\s.-]\d{3}[\s.-]\d{4}|\d{3}[\s.-]\d{3}[\s.-]\d{2}[\s.-]\d{2}|\d{2}[\s.-]\d{4}[\s.-]\d{4})(?![\d])""",
+    )
+    private val reAnticipo = Regex("""\b(?:anticipo|adelanto|dejo|abono|abonaron|dejaron|apartaron|aparto)\s*(?:de\s*)?\$?\s*($NUM)(?:\s*pesos)?""")
     private val rePrecio = Regex(
-        """\b(?:precio|cobro|cobra|cuesta|son|total|cobrar)\s*(?:de\s*)?\$?\s*($NUM)(?:\s*pesos)?""" +
+        """\b(?:precio|cobro|cobra|cuesta|son|total|cobrar|cobre)\s*(?:de\s*)?\$?\s*($NUM)(?:\s*pesos)?""" +
             """|\$\s*($NUM)(?:\s*pesos)?""" +
             """|\b($NUM)\s*pesos\b""",
     )
+    private val reCalle = Regex(
+        """\b(?:calle|c\.|c)\s*\d{1,3}[a-z]?(?:\s*(?:#|num\.?|numero|no\.)\s*\d{1,4}[a-z]?)?""" +
+            """(?:\s*(?:x|por)\s*\d{1,3}[a-z]?(?:\s*y\s*\d{1,3}[a-z]?)?)?""",
+    )
+    private val reSitio = Regex("""\b(?:iglesia|parroquia|capilla|funeraria|velatorio|panteon|cementerio|templo|catedral|ermita|salon)\b""")
+    private val reAvenida = Regex("""\b(?:av\.|avenida|periferico|prolongacion|privada|carretera)\s+""")
     private val reHora = Regex(
         """(?:\b(?:a\s+)?las?\s+)?\b(\d{1,2})(?:[:.](\d{2}))?\s*""" +
             """(y\s+media|y\s+cuarto|menos\s+cuarto)?\s*""" +
@@ -62,22 +80,28 @@ object LectorDeCitas {
     private val reFechaDia = Regex("""\b(?:el\s+)?dia\s+(\d{1,2})\b""")
     private val reRelativa = Regex("""\b(pasado\s+manana|manana|hoy)\b""")
     private val reSemana = Regex("""\b(?:(este|el\s+proximo|proximo|el)\s+)?(${diasSemana.keys.joinToString("|")})(\s+que\s+viene)?\b""")
+    private val reTrasHonorifico = Regex("""\b(?:$HONORIFICO)\s*$""")
     private val reTipos = listOf(
         Regex("""\bnovenario\b|\bnovenas?\b""") to Tipo.NOVENA,
         Regex("""\bvelorios?\b|\bvelacion\b|\bvelada\b""") to Tipo.VELORIO,
         Regex("""\bmisas?\b""") to Tipo.MISA,
         Regex("""\brezos?\b|\brezar\b|\brosarios?\b|\bcabo\s+de\s+ano\b""") to Tipo.REZO,
     )
-    private val reCliente = Regex(
-        """\b(?:dona|don|sra\.?|sr\.?|senora|senor|srita\.?|senorita|familia|fam\.|hermana|hermano|""" +
-            """maestra|maestro|profesora|profesor|profe|lic\.?|ing\.?|dra\.?|dr\.?|tia|tio|abuelita|abuelito)\s+[a-zn]+""",
-    )
-    private val reClienteSuave = Regex("""\b(?:con|para|casa\s+de|de\s+parte\s+de)\s+(?=[a-zn])""")
+    private val reCliente = Regex("""\b(?:$HONORIFICO)\s+(?=[a-z])""")
+    private val reClienteSuave = Regex("""\b(?:con|para|casa\s+de|de\s+parte\s+de)\s+(?=[a-z])""")
     private val reColonia = Regex("""\b(?:colonia|col\.|col|fraccionamiento|fracc\.|fracc|frac\.|frac|barrio|residencial)\s+""")
-    private val reLugar = Regex(
-        """\b(?:calle|c\.|num|numero|esquina|entre|cruzamientos|iglesia|parroquia|capilla|funeraria|""" +
-            """panteon|cementerio|templo|catedral|casa|privada|av\.|avenida|periferico|km)\b|#|\d+\s*x\s*\d+""",
-    )
+
+    /** Palabras que cortan un nombre de cliente o de colonia. */
+    private val paradas = setOf(
+        "colonia", "col", "fracc", "fraccionamiento", "frac", "barrio", "residencial",
+        "calle", "c", "av", "avenida", "privada", "periferico", "x", "por", "num", "numero",
+        "en", "a", "al", "para", "con", "tel", "cel", "telefono", "celular", "whatsapp",
+        "hoy", "manana", "pasado", "el", "este", "proximo",
+        "rezo", "rezos", "rezar", "rosario", "novena", "novenas", "novenario", "velorio", "velorios",
+        "misa", "misas", "cabo", "anticipo", "adelanto", "cobro", "cobra", "precio", "dejo", "pesos",
+        "iglesia", "parroquia", "capilla", "funeraria", "panteon", "cementerio", "casa",
+    ) + diasSemana.keys + meses
+    private val conectores = setOf("de", "del", "la", "los", "las", "y")
 
     fun leer(texto: String, hoy: LocalDate): Borrador {
         val t = Texto(texto)
@@ -85,41 +109,63 @@ object LectorDeCitas {
 
         val telefono = t.tomar(reTelefono)?.let { m -> m.value.filter(Char::isDigit).takeLast(10) } ?: ""
         val anticipo = t.tomar(reAnticipo)?.let { pesos(it.groupValues[1]) }
-        val precio = t.tomar(rePrecio)?.let { m ->
-            pesos(m.groupValues.drop(1).first { it.isNotEmpty() })
-        }
+        val precio = t.tomar(rePrecio)?.let { m -> pesos(m.groupValues.drop(1).first { it.isNotEmpty() }) }
+
+        val lugares = mutableListOf<String>()
+        t.tomar(reCalle)?.let { lugares += t.original.substring(it.range).trim() }
 
         val hora = leerHora(t, dudas)
         val fecha = leerFecha(t, hoy)
 
+        // El cliente antes que el tipo: "doña Rosario" no es un rosario.
+        var cliente = t.tomar(reCliente)?.let { m ->
+            val nombre = t.palabras(m.range.last + 1, maximo = 4, esNombre = true)
+            if (nombre.isEmpty()) "" else t.original.substring(m.range.first, m.range.last + 1).trim() + " " + nombre
+        } ?: ""
+
         val tipo = reTipos.firstNotNullOfOrNull { (re, tipo) -> t.tomar(re)?.let { tipo } }
 
-        val cliente = t.tomar(reCliente)?.let { m -> t.hastaComa(m.range.first, incluirInicio = true) }
-            ?: t.tomar(reClienteSuave)?.let { m -> t.hastaComa(m.range.last + 1) }?.takeIf { it.isNotBlank() }
-            ?: ""
+        t.tomar(reSitio)?.let { m ->
+            val resto = t.palabras(m.range.last + 1, maximo = 4, esNombre = false, conectoresAlInicio = true)
+            lugares += listOf(t.original.substring(m.range).trim(), resto).filter { it.isNotBlank() }.joinToString(" ")
+        }
+        t.tomar(reAvenida)?.let { m ->
+            val resto = t.palabras(m.range.last + 1, maximo = 5, esNombre = false, numeros = true)
+            lugares += (t.original.substring(m.range).trim() + " " + resto).trim()
+        }
 
-        var colonia = t.tomar(reColonia)?.let { m -> t.hastaComa(m.range.last + 1) }?.let(::limpiar) ?: ""
+        if (cliente.isEmpty()) {
+            cliente = t.tomar(reClienteSuave)?.let { m -> t.palabras(m.range.last + 1, maximo = 4, esNombre = true) } ?: ""
+        }
+
+        var colonia = t.tomar(reColonia)?.let { m -> t.palabras(m.range.last + 1, maximo = 4, esNombre = false, numeros = true) } ?: ""
         if (colonia.isEmpty()) colonia = t.tomarColoniaConocida() ?: ""
+        // "iglesia de Santiago": el lugar ya dice el barrio.
+        if (colonia.isEmpty()) colonia = lugares.firstNotNullOfOrNull { Colonias.buscarEn(it) } ?: ""
+        colonia = limpiar(colonia)
         val zona = Colonias.zonaDe(colonia)
 
-        val sobras = t.sobras().map(::limpiar).filter { s -> s.any(Char::isLetter) || s.any(Char::isDigit) }
-        val lugar = sobras.firstOrNull { reLugar.containsMatchIn(Texto.plano(it)) } ?: ""
-        var resto = sobras.filter { it != lugar }
+        var resto = t.sobras().map(::limpiar).filter { s -> s.any(Char::isLetterOrDigit) && Texto.plano(s) !in paradas }
 
-        var clienteFinal = limpiar(cliente)
-        if (clienteFinal.isEmpty()) {
-            val candidato = resto.firstOrNull { s -> s.all { it.isLetter() || it == ' ' || it == '.' } }
+        if (cliente.isEmpty()) {
+            val candidato = resto.firstOrNull { s ->
+                val palabras = s.split(' ')
+                palabras.size in 1..5 && s.all { it.isLetter() || it == ' ' || it == '.' } &&
+                    palabras.any { Texto.plano(it) !in paradas && Texto.plano(it) !in conectores }
+            }
             if (candidato != null) {
-                clienteFinal = candidato
+                cliente = candidato
                 resto = resto - candidato
                 dudas += "¿La cita es con $candidato?"
             }
         }
 
+        val lugar = lugares.filter { it.isNotBlank() }.joinToString(", ")
+
         if (fecha == null) dudas += "¿Qué día es?"
         if (hora == null) dudas += "¿A qué hora?"
         if (tipo == null) dudas += "¿Es rezo, novena, velorio o misa?"
-        if (clienteFinal.isEmpty()) dudas += "¿Con quién es la cita?"
+        if (cliente.isEmpty()) dudas += "¿Con quién es la cita?"
         if (colonia.isNotEmpty() && zona == Zona.SIN_ZONA) dudas += "No conozco la colonia $colonia: escoge la zona."
         if (lugar.isEmpty() && colonia.isEmpty()) dudas += "¿Dónde es?"
         if (anticipo != null && precio != null && anticipo > precio) dudas += "El anticipo es mayor que el precio."
@@ -127,7 +173,7 @@ object LectorDeCitas {
         return Borrador(
             fecha = fecha,
             hora = hora,
-            cliente = clienteFinal,
+            cliente = limpiar(cliente),
             tipo = tipo,
             lugar = lugar,
             colonia = colonia,
@@ -145,7 +191,8 @@ object LectorDeCitas {
         t.tomar(reMediodia)?.let { return LocalTime.NOON }
         val m = t.tomar(reHora) { m ->
             // Sin "a las", minutos ni "pm/de la tarde" un número suelto es otra cosa (calle 60).
-            val conLas = m.value.trimStart().startsWith("a ") || m.value.trimStart().startsWith("la")
+            val v = m.value.trimStart()
+            val conLas = v.startsWith("a ") || v.startsWith("la")
             val h = m.groupValues[1].toInt()
             h in 0..23 && (conLas || m.groupValues[2].isNotEmpty() || m.groupValues[3].isNotEmpty() || m.groupValues[4].isNotEmpty())
         } ?: return null
@@ -175,8 +222,7 @@ object LectorDeCitas {
         t.tomar(reFechaMes)?.let { m ->
             val dia = m.groupValues[1].toInt()
             val mes = meses.indexOf(m.groupValues[2]) + 1
-            val anio = m.groupValues[3].toIntOrNull()
-            return fechaValida(dia, mes, anio, hoy)
+            return fechaValida(dia, mes, m.groupValues[3].toIntOrNull(), hoy)
         }
         t.tomar(reFechaBarra)?.let { m ->
             val anio = m.groupValues[3].toIntOrNull()?.let { if (it < 100) 2000 + it else it }
@@ -185,19 +231,18 @@ object LectorDeCitas {
         t.tomar(reFechaDia)?.let { m ->
             val dia = m.groupValues[1].toInt()
             val esteMes = runCatching { hoy.withDayOfMonth(dia) }.getOrNull()
-            return when {
-                esteMes != null && !esteMes.isBefore(hoy) -> esteMes
-                else -> runCatching { hoy.plusMonths(1).withDayOfMonth(dia) }.getOrNull()
-            }
+            return if (esteMes != null && !esteMes.isBefore(hoy)) esteMes
+            else runCatching { hoy.plusMonths(1).withDayOfMonth(dia) }.getOrNull()
         }
-        t.tomar(reRelativa)?.let { m ->
+        t.tomar(reRelativa) { m -> !t.precedidoPor(m.range.first, reTrasHonorifico) }?.let { m ->
             return when (m.groupValues[1].replace(Regex("\\s+"), " ")) {
                 "hoy" -> hoy
                 "manana" -> hoy.plusDays(1)
                 else -> hoy.plusDays(2)
             }
         }
-        t.tomar(reSemana)?.let { m ->
+        // "don Domingo" es una persona, no un día.
+        t.tomar(reSemana) { m -> !t.precedidoPor(m.range.first, reTrasHonorifico) }?.let { m ->
             val dia = diasSemana.getValue(m.groupValues[2])
             var dias = (dia.value - hoy.dayOfWeek.value + 7) % 7
             val proximo = m.groupValues[1].contains("proximo") || m.groupValues[3].isNotEmpty()
@@ -219,6 +264,7 @@ object LectorDeCitas {
         var r = s.trim().trim(',', ';', '.', ':', '-', ' ')
         val relleno = Regex("""^(?:y|en|el|la|de|del|a|con|para|por)\s+|\s+(?:y|en|el|la|de|del|a|con|para|por)$""", RegexOption.IGNORE_CASE)
         repeat(3) { r = r.replace(relleno, "").trim().trim(',', ';', '.', ':', '-', ' ') }
+        if (r.lowercase() in setOf("y", "en", "el", "la", "de", "del", "a", "con", "para", "por", "las", "los")) return ""
         return r.replace(Regex("\\s+"), " ")
     }
 
@@ -242,34 +288,86 @@ object LectorDeCitas {
             return null
         }
 
-        /** Desde [inicio] hasta la siguiente coma o algo ya usado; lo marca como usado. */
-        fun hastaComa(inicio: Int, incluirInicio: Boolean = false): String {
-            var fin = inicio
-            while (fin < original.length && original[fin] !in ",;\n" && (!usado[fin] || (incluirInicio && fin < usadoHasta(inicio)))) fin++
-            for (i in inicio until fin) usado[i] = true
-            return original.substring(inicio, fin).trim()
+        fun precedidoPor(inicio: Int, re: Regex): Boolean = re.containsMatchIn(plano.substring(maxOf(0, inicio - 12), inicio))
+
+        /**
+         * Toma hasta [maximo] palabras desde [inicio] y las marca como usadas. Se detiene en
+         * una coma, un punto final, algo ya usado, una palabra de [paradas] o, si [esNombre],
+         * en un número o en el nombre de una colonia conocida.
+         */
+        fun palabras(
+            inicio: Int,
+            maximo: Int,
+            esNombre: Boolean,
+            numeros: Boolean = false,
+            conectoresAlInicio: Boolean = false,
+        ): String {
+            val tomadas = mutableListOf<IntRange>()
+            var i = inicio
+            var cuenta = 0
+            while (cuenta < maximo) {
+                while (i < plano.length && plano[i] == ' ' && !usado[i]) i++
+                if (i >= plano.length || usado[i] || plano[i] in ",;\n") break
+                var fin = i
+                while (fin < plano.length && plano[fin] != ' ' && plano[fin] !in ",;\n" && !usado[fin]) fin++
+                var palabra = plano.substring(i, fin)
+                val cierra = palabra.endsWith(".") && palabra.length > 2
+                palabra = palabra.trimEnd('.', ':')
+                if (palabra.isEmpty()) break
+                val esNumero = palabra.any(Char::isDigit)
+                // Tras "doña" la primera palabra siempre es nombre: "doña Rosario", "don Domingo".
+                if (palabra in paradas && !(esNombre && cuenta == 0)) break
+                if (esNumero && (esNombre || !numeros)) break
+                if (!esNumero && palabra.any { !it.isLetter() && it != '.' && it != '\'' }) break
+                if (esNombre && cuenta > 0 && Colonias.empiezaEn(plano, i)) break
+                if (palabra in conectores && !(conectoresAlInicio && cuenta == 0)) {
+                    // Un conector solo vale si después viene otra palabra útil ("María de la Cruz").
+                    val siguiente = siguientePalabra(fin)
+                    if (siguiente == null || siguiente in paradas || siguiente.any(Char::isDigit)) break
+                }
+                tomadas += i until (if (cierra) fin - 1 else fin)
+                cuenta++
+                i = fin
+                if (cierra) break
+            }
+            // No dejar un conector colgando al final.
+            while (tomadas.isNotEmpty() && plano.substring(tomadas.last()).trimEnd('.') in conectores) tomadas.removeAt(tomadas.lastIndex)
+            if (tomadas.isEmpty()) return ""
+            val desde = tomadas.first().first
+            val hasta = tomadas.last().last
+            for (k in desde..hasta) usado[k] = true
+            return original.substring(desde, hasta + 1).trim()
         }
 
-        private fun usadoHasta(inicio: Int): Int {
-            var i = inicio
-            while (i < original.length && usado[i]) i++
-            return i
+        private fun siguientePalabra(desde: Int): String? {
+            var i = desde
+            while (i < plano.length && plano[i] == ' ') i++
+            if (i >= plano.length || usado[i] || plano[i] in ",;\n") return null
+            var fin = i
+            while (fin < plano.length && plano[fin] != ' ' && plano[fin] !in ",;\n" && !usado[fin]) fin++
+            return plano.substring(i, fin).trimEnd('.')
         }
 
         fun tomarColoniaConocida(): String? {
-            val nombre = Colonias.buscarEn(sobras().joinToString(" , ")) ?: return null
-            val re = Regex("""\b${Regex.escape(Colonias.normalizar(nombre))}\b""")
-            // La versión plana conserva signos; se busca palabra por palabra.
-            val m = re.find(plano.replace(Regex("[^a-z0-9 ]"), " ")) ?: return nombre
-            if (m.range.any { usado[it] }) return nombre
-            m.range.forEach { usado[it] = true }
-            return nombre
+            val limpio = plano.replace(Regex("[^a-z0-9 ]"), " ")
+            for ((nombre, normal) in Colonias.porLargo()) {
+                val patron = normal.split(' ').joinToString("""\s+""") { Regex.escape(it) }
+                var m = Regex("""\b$patron\b""").find(limpio)
+                while (m != null) {
+                    if (m.range.none { usado[it] }) {
+                        m.range.forEach { usado[it] = true }
+                        return nombre
+                    }
+                    m = m.next()
+                }
+            }
+            return null
         }
 
         fun sobras(): List<String> {
             val sb = StringBuilder()
             original.forEachIndexed { i, c -> sb.append(if (usado[i]) ',' else c) }
-            return sb.split(',', ';', '\n').map { it.trim() }.filter { it.isNotEmpty() }
+            return sb.split(Regex("""[,;\n]|\.\s""")).map { it.trim() }.filter { it.isNotEmpty() }
         }
 
         companion object {
