@@ -4,7 +4,9 @@ import android.Manifest
 import android.os.ParcelFileDescriptor
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -58,7 +60,9 @@ class RecorridoTest {
         toca("Empezar")
         foto("agenda")
 
-        toca("Nueva cita")
+        regla.waitUntil(8_000) { regla.onAllNodesWithTag("nueva-cita", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        regla.onNodeWithTag("nueva-cita", useUnmergedTree = true).performClick()
+        regla.waitForIdle()
         foto("nueva-cita")
         regla.onAllNodes(hasSetTextAction())[0].performTextInput("sábado 3pm novena colonia Chuburná doña Rosa 9991234567 \$600 anticipo 200")
         foto("nueva-cita-escrita")

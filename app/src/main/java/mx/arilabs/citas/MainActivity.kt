@@ -43,6 +43,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -409,6 +410,7 @@ private fun Inicio(
             AnimatedVisibility(pestana == Pestana.AGENDA || pestana == Pestana.CALENDARIO || pestana == Pestana.CLIENTES, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
                 ExtendedFloatingActionButton(
                     onClick = onNueva,
+                    modifier = Modifier.testTag("nueva-cita"),
                     containerColor = Papel.azul,
                     contentColor = androidx.compose.ui.graphics.Color.White,
                     icon = { Icon(Icons.Filled.Add, contentDescription = null) },
