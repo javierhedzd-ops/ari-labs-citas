@@ -17,6 +17,14 @@ Modelo 1 de Ari Labs: app de citas para quien trabaja yendo a casas. Primer clie
 - Las citas se entienden con reglas, sin IA. Las zonas salen de una lista de colonias de Mérida hecha a mano (`Colonias.kt`); si no conoce la colonia, se escoge a mano.
 - Una hora sin "de la mañana/tarde" de 1 a 7 se toma por la tarde; de 8 a 11 se pregunta.
 
+## Cómo está hecha
+
+- Kotlin + Jetpack Compose, una sola pantalla (`MainActivity`) con vistas: Agenda, Nueva cita, Revisar, Detalle, Avisos y Ajustes.
+- `lector/LectorDeCitas.kt`: entiende el texto libre con reglas. `lector/Colonias.kt`: colonias de Mérida y su zona.
+- `datos/`: la cita, la agenda (hoy, próximos 7 días, orden por zona), los mensajes de WhatsApp y el guardado en un archivo JSON del teléfono.
+- Diseño "agenda de papel": fondo crema, tinta azul, letra grande y botones de 56 dp.
+- Pruebas en `app/src/test` (lector, agenda y mensajes).
+
 ## Estado
 
-En construcción. Aún no se compila (se compilará cuando todo esté listo).
+En construcción. Aún no se ha compilado: el workflow `Compilar APK` es solo manual y se lanza cuando todo esté listo.

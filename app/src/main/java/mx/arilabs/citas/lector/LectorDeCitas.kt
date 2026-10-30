@@ -54,7 +54,7 @@ object LectorDeCitas {
     private val reHora = Regex(
         """(?:\b(?:a\s+)?las?\s+)?\b(\d{1,2})(?:[:.](\d{2}))?\s*""" +
             """(y\s+media|y\s+cuarto|menos\s+cuarto)?\s*""" +
-            """(a\.?\s?m\.?|p\.?\s?m\.?|hrs|hr|h\b|de\s+la\s+manana|de\s+la\s+tarde|de\s+la\s+noche|de\s+la\s+madrugada|del\s+mediodia)?""",
+            """((?:a\.?\s?m|p\.?\s?m)\b\.?|hrs|hr|h\b|de\s+la\s+manana|de\s+la\s+tarde|de\s+la\s+noche|de\s+la\s+madrugada|del\s+mediodia)?""",
     )
     private val reMediodia = Regex("""\b(?:al\s+|a\s+)?mediodia\b""")
     private val reFechaMes = Regex("""\b(?:el\s+)?(\d{1,2})\s+de\s+(${meses.joinToString("|")})(?:\s+(?:de\s+|del\s+)?(\d{4}))?\b""")
