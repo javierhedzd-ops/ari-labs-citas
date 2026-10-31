@@ -27,6 +27,19 @@ class Almacen(context: Context) {
         get() = prefs.getString("clave", "") ?: ""
         set(v) = prefs.edit().putString("clave", v.trim()).apply()
 
+    /**
+     * Fecha de hoy que no se deja atrasar: si alguien regresa la fecha del teléfono para que
+     * la licencia no venza, se usa la fecha más reciente que la app ya vio.
+     */
+    fun hoySeguro(): LocalDate {
+        val visto = prefs.getString("ultimaFecha", null)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        val hoy = LocalDate.now()
+        return if (visto != null && visto.isAfter(hoy)) visto else {
+            prefs.edit().putString("ultimaFecha", hoy.toString()).apply()
+            hoy
+        }
+    }
+
     // ------------------------------------------------ Repertorio y equipo
 
     private val archivoRepertorio = File(context.filesDir, "repertorio.json")

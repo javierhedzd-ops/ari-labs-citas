@@ -144,8 +144,10 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
     val llave = BuildConfig.LLAVE_LICENCIA
     val candado = llave.isNotBlank()
     var licencia by remember { mutableStateOf(mx.arilabs.citas.datos.Licencia.verificar(mx.arilabs.citas.ui.codigoTelefono(context), almacen.clave, llave)) }
+    val hoyLicencia = remember { almacen.hoySeguro() }
+    fun vigente() = licencia?.vigente(hoyLicencia) == true
     fun propias() = citas.count { !Ejemplos.esEjemplo(it) }
-    fun puedeApuntar() = !candado || licencia != null || propias() < mx.arilabs.citas.datos.Licencia.CITAS_DE_PRUEBA
+    fun puedeApuntar() = !candado || vigente() || (licencia == null && propias() < mx.arilabs.citas.datos.Licencia.CITAS_DE_PRUEBA)
     val corrutinas = androidx.compose.runtime.rememberCoroutineScope()
 
     fun ir(v: Vista) { historial.add(vista); vista = v }
@@ -188,6 +190,18 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
             historial.add(Vista.Inicio)
             vista = Vista.Formulario(LectorDeCitas.leer(compartido, LocalDate.now()), null)
             onCompartidoUsado()
+        }
+    }
+
+    // Aviso de renovación 15 días antes de que venza.
+    LaunchedEffect(Unit) {
+        val d = licencia
+        if (candado && d != null && d.porVencer(hoyLicencia)) {
+            val r = avisos.showSnackbar(
+                "Tu licencia vence el ${Mensajes.fecha(d.vence)}. Renueva con Ari Labs.",
+                actionLabel = "Renovar", duration = androidx.compose.material3.SnackbarDuration.Long,
+            )
+            if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) ir(Vista.Activar)
         }
     }
 
@@ -392,8 +406,14 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
                             }
                         },
                         bienvenida = Mensajes.bienvenida(nombre),
-                        licencia = if (!candado) null else (licencia?.let { "Activada a nombre de $it" } ?: "Versión de prueba: ${propias()} de ${mx.arilabs.citas.datos.Licencia.CITAS_DE_PRUEBA} citas"),
-                        onActivar = if (candado && licencia == null) ({ ir(Vista.Activar) }) else null,
+                        licencia = if (!candado) null else licencia.let { d ->
+                            when {
+                                d == null -> "Versión de prueba: ${propias()} de ${mx.arilabs.citas.datos.Licencia.CITAS_DE_PRUEBA} citas"
+                                d.vigente(hoyLicencia) -> "A nombre de ${d.nombre}. Vence el ${Mensajes.fecha(d.vence)} de ${d.vence.year}."
+                                else -> "Tu licencia venció el ${Mensajes.fecha(d.vence)}. Renueva con Ari Labs para seguir apuntando citas."
+                            }
+                        },
+                        onActivar = if (candado && !vigente()) ({ ir(Vista.Activar) }) else if (candado && licencia?.porVencer(hoyLicencia) == true) ({ ir(Vista.Activar) }) else null,
                         onEjemplos = { poner ->
                             citas.removeAll { Ejemplos.esEjemplo(it) }
                             if (poner) citas.addAll(Ejemplos.crear(hoy))
@@ -419,17 +439,20 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
                 Vista.Activar -> Box(Modifier.safeDrawingPadding()) {
                     mx.arilabs.citas.ui.PantallaActivar(
                         usadas = propias(),
+                        vencio = licencia?.takeIf { !it.vigente(hoyLicencia) }?.vence,
                         onAtras = { atras() },
                         onActivar = { clave ->
-                            val nombreLicencia = mx.arilabs.citas.datos.Licencia.verificar(mx.arilabs.citas.ui.codigoTelefono(context), clave, llave)
-                            if (nombreLicencia == null) {
-                                "Esa clave no es de este teléfono. Revisa que la copiaste completa o pide una nueva."
-                            } else {
-                                almacen.clave = clave
-                                licencia = nombreLicencia
-                                atras()
-                                corrutinas.launch { avisos.showSnackbar("Mis citas activada a nombre de $nombreLicencia") }
-                                null
+                            val datos = mx.arilabs.citas.datos.Licencia.verificar(mx.arilabs.citas.ui.codigoTelefono(context), clave, llave)
+                            when {
+                                datos == null -> "Esa clave no es de este teléfono. Revisa que la copiaste completa o pide una nueva."
+                                !datos.vigente(hoyLicencia) -> "Esa clave ya venció el ${Mensajes.fecha(datos.vence)}. Pide una nueva a Ari Labs."
+                                else -> {
+                                    almacen.clave = clave
+                                    licencia = datos
+                                    atras()
+                                    corrutinas.launch { avisos.showSnackbar("Activada a nombre de ${datos.nombre} hasta el ${Mensajes.fecha(datos.vence)}") }
+                                    null
+                                }
                             }
                         },
                     )

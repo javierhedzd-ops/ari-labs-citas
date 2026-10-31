@@ -46,6 +46,7 @@ fun codigoTelefono(context: Context): String =
 @Composable
 fun PantallaActivar(
     usadas: Int,
+    vencio: java.time.LocalDate? = null,
     onAtras: (() -> Unit)?,
     onActivar: (String) -> String?,
 ) {
@@ -62,9 +63,10 @@ fun PantallaActivar(
             Box(Modifier.size(64.dp).clip(CircleShape).background(Papel.azulSuave), contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.Lock, null, tint = Papel.azul, modifier = Modifier.size(30.dp))
             }
-            Text("Activa tu app", style = MaterialTheme.typography.displaySmall)
+            Text(if (vencio != null) "Renueva tu licencia" else "Activa tu app", style = MaterialTheme.typography.displaySmall)
             Text(
-                if (usadas >= Licencia.CITAS_DE_PRUEBA) "Ya usaste las ${Licencia.CITAS_DE_PRUEBA} citas de prueba. Para seguir apuntando, activa Mis citas con tu clave."
+                if (vencio != null) "Tu licencia anual venció el ${mx.arilabs.citas.datos.Mensajes.fecha(vencio)}. Tus citas siguen guardadas; para apuntar nuevas, pide tu clave del nuevo año."
+                else if (usadas >= Licencia.CITAS_DE_PRUEBA) "Ya usaste las ${Licencia.CITAS_DE_PRUEBA} citas de prueba. Para seguir apuntando, activa Mis citas con tu clave."
                 else "Estás usando la versión de prueba ($usadas de ${Licencia.CITAS_DE_PRUEBA} citas). Actívala para usarla sin límite.",
                 style = MaterialTheme.typography.bodyLarge, color = Papel.tenue,
             )
@@ -79,7 +81,7 @@ fun PantallaActivar(
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Boton("Copiar", Modifier.weight(1f), icono = Iconos.copiar) { Acciones.copiar(context, Licencia.bonito(codigo)) }
                         Boton("WhatsApp", Modifier.weight(1f), primario = true, icono = Iconos.chat, colorFondo = Papel.verde) {
-                            Acciones.whatsapp(context, "Hola, quiero activar Mis citas. El código de mi teléfono es: ${Licencia.bonito(codigo)}")
+                            Acciones.whatsapp(context, (if (vencio != null) "Hola, quiero renovar Mis citas." else "Hola, quiero activar Mis citas.") + " El código de mi teléfono es: ${Licencia.bonito(codigo)}")
                         }
                     }
                 }
@@ -96,7 +98,7 @@ fun PantallaActivar(
                         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         val texto = cm.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
                         // Del mensaje completo, quedarse con la clave (lo que tiene un punto en medio).
-                        clave = Regex("""[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{60,}""").find(texto)?.value ?: texto.trim()
+                        clave = Regex("""[A-Za-z0-9_-]+\.\d{8}\.[A-Za-z0-9_-]{60,}""").find(texto)?.value ?: texto.trim()
                         error = ""
                     }
                     if (error.isNotBlank()) Text(error, style = MaterialTheme.typography.bodyMedium, color = Papel.rojo)
@@ -106,7 +108,7 @@ fun PantallaActivar(
                 }
             }
             Text(
-                "La clave solo sirve en este teléfono. Si cambias de teléfono, pide una nueva a Ari Labs.",
+                "La licencia dura un año y solo sirve en este teléfono. Si cambias de teléfono, pide una nueva a Ari Labs.",
                 style = MaterialTheme.typography.bodySmall, color = Papel.tenue,
             )
         }
