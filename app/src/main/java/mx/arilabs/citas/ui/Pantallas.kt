@@ -725,6 +725,16 @@ fun PantallaAjustes(
                     Boton("Copiar mensaje de bienvenida", Modifier.fillMaxWidth(), primario = true, icono = Iconos.copiar) { Acciones.copiar(context, bienvenida) }
                 }
             }
+            Grupo("Avisos") {
+                Text("Te avisamos una hora antes de cada cita. Si no te llegan, toca el botón, entra a Batería y escoge Sin restricciones.", style = MaterialTheme.typography.bodyMedium)
+                Boton("¿No te llegan los avisos?", Modifier.fillMaxWidth()) {
+                    runCatching {
+                        context.startActivity(
+                            android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", context.packageName, null)),
+                        )
+                    }
+                }
+            }
             Grupo("Copia de tus citas") {
                 Text("Si cambias o pierdes el teléfono, con la copia recuperas todo. Mándatela por WhatsApp de vez en cuando.", style = MaterialTheme.typography.bodyMedium)
                 Boton("Mandarme la copia", Modifier.fillMaxWidth(), primario = true, icono = Iconos.chat, colorFondo = Papel.verde) { Acciones.whatsapp(context, onCopia()) }

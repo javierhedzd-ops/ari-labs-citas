@@ -25,11 +25,13 @@ object Acciones {
         val digitos = telefono.filter(Char::isDigit).takeLast(10)
         if (digitos.length == 10) {
             val uri = Uri.parse("https://wa.me/52$digitos?text=" + Uri.encode(texto))
-            if (abrir(context, Intent(Intent.ACTION_VIEW, uri).setPackage("com.whatsapp"))) return
+            // Primero WhatsApp Business: es donde el tecladista habla con sus clientes.
             if (abrir(context, Intent(Intent.ACTION_VIEW, uri).setPackage("com.whatsapp.w4b"))) return
+            if (abrir(context, Intent(Intent.ACTION_VIEW, uri).setPackage("com.whatsapp"))) return
             if (abrir(context, Intent(Intent.ACTION_VIEW, uri))) return
         }
         val envio = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, texto)
+        if (abrir(context, Intent(envio).setPackage("com.whatsapp.w4b"))) return
         if (abrir(context, Intent(envio).setPackage("com.whatsapp"))) return
         if (abrir(context, Intent.createChooser(envio, "Mandar con…"))) return
         copiar(context, texto)

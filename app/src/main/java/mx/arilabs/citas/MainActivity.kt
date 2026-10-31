@@ -103,7 +103,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        Fallos.instalar(this)
+        // La app siempre es clara: con el teléfono en modo oscuro, la hora y la batería salían blancas sobre blanco.
+        enableEdgeToEdge(
+            statusBarStyle = androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+        )
         if (savedInstanceState == null) recibir(intent)
         val almacen = Almacen(applicationContext)
         setContent {
@@ -149,6 +154,8 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
     fun propias() = citas.count { !Ejemplos.esEjemplo(it) }
     fun puedeApuntar() = !candado || vigente() || (licencia == null && propias() < mx.arilabs.citas.datos.Licencia.CITAS_DE_PRUEBA)
     val corrutinas = androidx.compose.runtime.rememberCoroutineScope()
+    // Si la app se cerró sola la vez pasada, ofrece mandarle el informe a Ari Labs.
+    var fallo by remember { mutableStateOf(Fallos.pendiente(context)) }
 
     fun ir(v: Vista) { historial.add(vista); vista = v }
     fun atras() { vista = if (historial.isNotEmpty()) historial.removeAt(historial.lastIndex) else Vista.Inicio }
@@ -475,6 +482,18 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
             containerColor = Papel.tinta,
             contentColor = androidx.compose.ui.graphics.Color.White,
             actionColor = androidx.compose.ui.graphics.Color(0xFF9ED8EE),
+        )
+    }
+    fallo?.let { informe ->
+        fun cerrar() { Fallos.olvidar(context); fallo = null }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { cerrar() },
+            title = { Text("La app se cerró sola") },
+            text = { Text("Perdón por eso. ¿Le mandas el informe a Ari Labs por WhatsApp para que lo arreglen?") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { mx.arilabs.citas.ui.Acciones.whatsapp(context, "Informe de fallo de Mis citas:\n\n$informe"); cerrar() }) { Text("Mandar") }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { cerrar() }) { Text("Ahora no") } },
         )
     }
     }

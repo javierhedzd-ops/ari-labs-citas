@@ -25,6 +25,8 @@ object Recordatorios {
 
     private const val CANAL = "citas"
     private const val ANTES_MIN = 60L
+    /** Android deja hasta 500 alarmas por app; con 300 sobra para meses de citas. */
+    private const val MAXIMO = 300
 
     fun reprogramar(context: Context, citas: List<Cita>) {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
@@ -36,14 +38,28 @@ object Recordatorios {
         val programadas = mutableSetOf<String>()
         citas.filter { !it.cancelada && !it.hecha && it.id > 0 }
             .map { it to LocalDateTime.of(it.fecha, it.hora).minusMinutes(ANTES_MIN) }
-            .filter { (_, cuando) -> cuando.isAfter(ahora) && cuando.isBefore(ahora.plusDays(45)) }
+            .filter { (_, cuando) -> cuando.isAfter(ahora) }
+            .sortedBy { (_, cuando) -> cuando }
+            .take(MAXIMO)
             .forEach { (c, cuando) ->
                 val ms = cuando.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ms, intento(context, c.id, c))
+                programar(am, ms, intento(context, c.id, c))
                 programadas += c.id.toString()
             }
         prefs.edit().putStringSet("ids", programadas).apply()
     }
+
+    /**
+     * A la hora exacta (permiso USE_EXACT_ALARM, de apps de agenda). Una alarma normal puede
+     * llegar muy tarde si la cita es en varios días; si no hay permiso, a más tardar 10 min antes.
+     */
+    private fun programar(am: AlarmManager, ms: Long, pi: PendingIntent) {
+        val exacta = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
+        if (exacta && runCatching { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ms, pi) }.isSuccess) return
+        am.setWindow(AlarmManager.RTC_WAKEUP, ms - DIEZ_MIN, DIEZ_MIN, pi)
+    }
+
+    private const val DIEZ_MIN = 10 * 60_000L
 
     private fun intento(context: Context, id: Long, c: Cita?): PendingIntent {
         val i = Intent(context, AvisoReceiver::class.java).setAction("mx.arilabs.citas.AVISO.$id")

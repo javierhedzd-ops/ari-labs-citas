@@ -73,19 +73,29 @@ class Almacen(context: Context) {
         get() = prefs.getString("equipo", null)?.split("\n")?.filter { it.isNotBlank() } ?: Repertorio.equipoInicial
         set(v) = prefs.edit().putString("equipo", v.joinToString("\n")).apply()
 
+    /** La versión anterior de citas.json: si el archivo se daña, de aquí se recuperan las citas. */
+    private val respaldo = File(context.filesDir, "citas.respaldo.json")
+
     @Synchronized
     fun leer(): List<Cita> {
-        if (!archivo.exists()) return emptyList()
-        return runCatching {
-            val arr = JSONArray(archivo.readText())
-            (0 until arr.length()).mapNotNull { i -> runCatching { desdeJson(arr.getJSONObject(i)) }.getOrNull() }
-        }.getOrElse { emptyList() }
+        for (f in listOf(archivo, respaldo)) {
+            if (!f.exists()) continue
+            val lista = runCatching {
+                val arr = JSONArray(f.readText())
+                (0 until arr.length()).mapNotNull { i -> runCatching { desdeJson(arr.getJSONObject(i)) }.getOrNull() }
+            }.getOrNull()
+            if (lista != null) return lista
+            // Dañado: se aparta para que el siguiente guardado no lo pise, y se prueba con el respaldo.
+            runCatching { f.copyTo(File(f.parentFile, f.name + ".danado"), overwrite = true) }
+        }
+        return emptyList()
     }
 
     @Synchronized
     fun guardar(citas: List<Cita>) {
         val arr = JSONArray()
         citas.forEach { arr.put(aJson(it)) }
+        if (archivo.exists()) runCatching { archivo.copyTo(respaldo, overwrite = true) }
         val tmp = File(archivo.parentFile, "citas.json.tmp")
         tmp.writeText(arr.toString())
         if (!tmp.renameTo(archivo)) {
@@ -96,10 +106,21 @@ class Almacen(context: Context) {
 
     fun siguienteId(citas: List<Cita>): Long = (citas.maxOfOrNull { it.id } ?: 0L) + 1
 
-    /** Copia de todas las citas en texto, para mandarla por WhatsApp a uno mismo. */
+    /**
+     * Copia de todas las citas en texto, para mandarla por WhatsApp a uno mismo. Sin campos
+     * vacíos ni el mensaje original, para que quepa en un mensaje aunque haya cientos de citas.
+     */
     fun exportar(citas: List<Cita>): String {
         val arr = JSONArray()
-        citas.forEach { arr.put(aJson(it)) }
+        citas.forEach { c ->
+            val o = aJson(c)
+            o.remove("textoOriginal")
+            o.keys().asSequence().toList().forEach { k ->
+                val v = o.opt(k)
+                if (v == "" || v == false || (v is JSONArray && v.length() == 0)) o.remove(k)
+            }
+            arr.put(o)
+        }
         return JSONObject().put("app", "mis-citas").put("version", 1).put("citas", arr).toString()
     }
 
