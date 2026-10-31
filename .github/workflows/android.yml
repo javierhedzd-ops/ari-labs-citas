@@ -43,3 +43,26 @@ jobs:
         with:
           name: ari-labs-citas-debug
           path: app/build/outputs/apk/debug/*.apk
+
+      # Versión final firmada (para vender). Necesita los secretos FIRMA_LLAVE y FIRMA_CLAVE.
+      - name: APK final firmado
+        env:
+          FIRMA_LLAVE: ${{ secrets.FIRMA_LLAVE }}
+          FIRMA_CLAVE: ${{ secrets.FIRMA_CLAVE }}
+        run: |
+          if [ -z "$FIRMA_LLAVE" ] || [ -z "$FIRMA_CLAVE" ]; then
+            echo "::warning::Faltan los secretos FIRMA_LLAVE y FIRMA_CLAVE: no se hace la versión final."
+            exit 0
+          fi
+          echo "$FIRMA_LLAVE" | tr -d ' \n\r' | base64 -d > "$RUNNER_TEMP/firma.p12"
+          export FIRMA_ARCHIVO="$RUNNER_TEMP/firma.p12"
+          ./gradlew --no-daemon :app:assembleRelease
+          ver=$(grep -m1 'versionName' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
+          mkdir -p final && cp app/build/outputs/apk/release/app-release.apk "final/mis-citas-$ver.apk"
+          rm -f "$RUNNER_TEMP/firma.p12"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mis-citas-final
+          path: final/*.apk
+          if-no-files-found: ignore

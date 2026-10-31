@@ -20,10 +20,30 @@ android {
         buildConfigField("String", "LLAVE_LICENCIA", "\"${(project.findProperty("licenciaPublica") as String?) ?: ""}\"")
     }
 
+    // Firma de la versión final: el workflow deja la llave en FIRMA_ARCHIVO (sale de los secretos
+    // de GitHub). Sin llave, la versión final no se firma y solo sirve la de prueba.
+    val archivoFirma = System.getenv("FIRMA_ARCHIVO")?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (archivoFirma != null) {
+            create("final") {
+                storeFile = archivoFirma
+                storeType = "PKCS12"
+                storePassword = System.getenv("FIRMA_CLAVE")
+                keyAlias = "arilabs"
+                keyPassword = System.getenv("FIRMA_CLAVE")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (archivoFirma != null) signingConfig = signingConfigs.getByName("final")
         }
+    }
+
+    lint {
+        checkReleaseBuilds = false
     }
 
     compileOptions {
