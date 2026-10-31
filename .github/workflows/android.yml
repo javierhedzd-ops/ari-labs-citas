@@ -66,3 +66,21 @@ jobs:
           name: mis-citas-final
           path: final/*.apk
           if-no-files-found: ignore
+
+      # Para leer los informes de fallo de la versión final (el código va revuelto por R8).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mis-citas-mapping
+          path: app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: ignore
+
+      # Revisión automática de Android (no detiene la compilación; el reporte queda para leerlo).
+      - name: Lint
+        if: always()
+        run: ./gradlew --no-daemon :app:lintDebug
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint
+          path: app/build/reports/lint-results-debug.*
+          if-no-files-found: ignore

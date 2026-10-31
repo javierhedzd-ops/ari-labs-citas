@@ -13,10 +13,12 @@ android {
         applicationId = "mx.arilabs.citas"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.3.0"
+        versionCode = 7
+        versionName = "1.3.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Llave pública de licencias de Ari Labs (página de licencias de Javi). Vacía = sin candado.
+        // Huella (SHA-256) del certificado de Ari Labs; vacía = no se revisa (versión de prueba).
+        buildConfigField("String", "FIRMA_ESPERADA", "\"\"")
         buildConfigField("String", "LLAVE_LICENCIA", "\"${(project.findProperty("licenciaPublica") as String?) ?: ""}\"")
     }
 
@@ -37,13 +39,19 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            if (archivoFirma != null) signingConfig = signingConfigs.getByName("final")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (archivoFirma != null) {
+                signingConfig = signingConfigs.getByName("final")
+                buildConfigField("String", "FIRMA_ESPERADA", "\"e77512a95d6968b75468d453983eb9fb9095a6b3e5fb1faa6fa9a5f99460a854\"")
+            }
         }
     }
 
     lint {
         checkReleaseBuilds = false
+        abortOnError = false
     }
 
     compileOptions {

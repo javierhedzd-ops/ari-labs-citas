@@ -41,7 +41,11 @@ jobs:
             adb shell settings put system font_scale 1.3
             ./gradlew --no-daemon :app:connectedDebugAndroidTest || touch fallo
             adb pull /sdcard/capturas capturas || true
+            bash .github/scripts/humo-final.sh || touch fallo
             test ! -f fallo
+        env:
+          FIRMA_LLAVE: ${{ secrets.FIRMA_LLAVE }}
+          FIRMA_CLAVE: ${{ secrets.FIRMA_CLAVE }}
 
       - name: Subir capturas a la rama "capturas"
         if: always()
@@ -61,4 +65,5 @@ jobs:
           name: capturas-emulador
           path: |
             capturas/
+            monkey.txt
             app/build/reports/androidTests/

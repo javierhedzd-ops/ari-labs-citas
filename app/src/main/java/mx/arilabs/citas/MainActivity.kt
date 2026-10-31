@@ -158,11 +158,13 @@ private fun App(
     // Licencia: si la app trae llave pública, sin clave válida queda en modo prueba.
     val llave = BuildConfig.LLAVE_LICENCIA
     val candado = llave.isNotBlank()
-    var licencia by remember { mutableStateOf(mx.arilabs.citas.datos.Licencia.verificar(mx.arilabs.citas.ui.codigoTelefono(context), almacen.clave, llave)) }
+    // Una copia modificada y vuelta a firmar no acepta licencias ni modo prueba.
+    val original = remember { Integridad.original(context).also { android.util.Log.i("MisCitas", "original=$it") } }
+    var licencia by remember { mutableStateOf(if (original) mx.arilabs.citas.datos.Licencia.verificar(mx.arilabs.citas.ui.codigoTelefono(context), almacen.clave, llave) else null) }
     val hoyLicencia = remember { almacen.hoySeguro() }
     fun vigente() = licencia?.vigente(hoyLicencia) == true
     fun propias() = citas.count { !Ejemplos.esEjemplo(it) }
-    fun puedeApuntar() = !candado || vigente() || (licencia == null && propias() < mx.arilabs.citas.datos.Licencia.CITAS_DE_PRUEBA)
+    fun puedeApuntar() = !candado || (original && (vigente() || (licencia == null && propias() < mx.arilabs.citas.datos.Licencia.CITAS_DE_PRUEBA)))
     val corrutinas = androidx.compose.runtime.rememberCoroutineScope()
     // Si la app se cerró sola la vez pasada, ofrece mandarle el informe a Ari Labs.
     var fallo by remember { mutableStateOf(Fallos.pendiente(context)) }
@@ -431,6 +433,7 @@ private fun App(
                         bienvenida = Mensajes.bienvenida(nombre),
                         licencia = if (!candado) null else licencia.let { d ->
                             when {
+                                !original -> "Esta copia de Mis citas no es original. Consíguela con Ari Labs."
                                 d == null -> "Versión de prueba: ${propias()} de ${mx.arilabs.citas.datos.Licencia.CITAS_DE_PRUEBA} citas"
                                 d.vigente(hoyLicencia) -> "A nombre de ${d.nombre}. Vence el ${Mensajes.fecha(d.vence)} de ${d.vence.year}."
                                 else -> "Tu licencia venció el ${Mensajes.fecha(d.vence)}. Renueva con Ari Labs para seguir apuntando citas."
@@ -467,6 +470,7 @@ private fun App(
                         onActivar = { clave ->
                             val datos = mx.arilabs.citas.datos.Licencia.verificar(mx.arilabs.citas.ui.codigoTelefono(context), clave, llave)
                             when {
+                                !original -> "Esta copia de Mis citas no es original. Consíguela con Ari Labs."
                                 datos == null -> "Esa clave no es de este teléfono. Revisa que la copiaste completa o pide una nueva."
                                 !datos.vigente(hoyLicencia) -> "Esa clave ya venció el ${Mensajes.fecha(datos.vence)}. Pide una nueva a Ari Labs."
                                 else -> {
