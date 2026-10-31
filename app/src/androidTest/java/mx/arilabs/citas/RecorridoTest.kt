@@ -12,6 +12,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,9 +38,20 @@ class RecorridoTest {
         ParcelFileDescriptor.AutoCloseInputStream(pfd).use { it.readBytes() }
     }
 
+    /** El emulador a veces muestra "Pixel Launcher isn't responding" encima: se cierra con "Wait". */
+    private fun quitarAvisoDelSistema() {
+        val tel = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        repeat(3) {
+            val esperar = tel.findObject(By.text("Wait")) ?: return
+            esperar.click()
+            Thread.sleep(600)
+        }
+    }
+
     private fun foto(nombre: String) {
         regla.waitForIdle()
         Thread.sleep(900)
+        quitarAvisoDelSistema()
         n++
         shell("mkdir -p /sdcard/capturas")
         shell("screencap -p /sdcard/capturas/%02d-%s.png".format(n, nombre))
@@ -77,6 +90,8 @@ class RecorridoTest {
         foto("agenda-despues")
 
         toca("Clientes")
+        // La lista puede ser más larga que la pantalla: se busca por nombre.
+        regla.onAllNodes(hasSetTextAction())[0].performTextInput("Rosa")
         toca("doña Rosa")
         foto("cliente")
         toca("Atrás")
