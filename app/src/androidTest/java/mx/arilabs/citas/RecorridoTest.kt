@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -62,7 +63,10 @@ class RecorridoTest {
         regla.waitUntil(8_000) { regla.onAllNodesWithText(texto).fetchSemanticsNodes().isNotEmpty() }
         Thread.sleep(500)
         regla.waitForIdle()
-        regla.onAllNodesWithText(texto)[0].performClick()
+        val nodo = regla.onAllNodesWithText(texto)[0]
+        // Con letra grande o con el teclado abierto, el botón puede quedar fuera de la pantalla.
+        runCatching { nodo.performScrollTo() }
+        nodo.performClick()
         regla.waitForIdle()
     }
 
@@ -70,6 +74,7 @@ class RecorridoTest {
     fun recorrido() {
         foto("bienvenida")
         regla.onAllNodes(hasSetTextAction())[0].performTextInput("Don Javier")
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
         toca("Empezar")
         foto("agenda")
 

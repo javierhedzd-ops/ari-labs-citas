@@ -669,6 +669,9 @@ fun PantallaBienvenida(onEmpezar: (String, Boolean) -> Unit) {
             value = nombre, onValueChange = { nombre = it }, singleLine = true,
             label = { Text("¿Cómo firmas tus mensajes?") }, placeholder = { Text("Ejemplo: Don Javier") },
             shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth(),
+            // La palomita del teclado también empieza (el botón puede quedar tapado por el teclado).
+            keyboardOptions = KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { if (nombre.isNotBlank()) onEmpezar(nombre.trim(), ejemplo) }),
         )
         Row(
             Modifier.fillMaxWidth().toggleable(value = ejemplo, role = Role.Switch, onValueChange = { ejemplo = it }),

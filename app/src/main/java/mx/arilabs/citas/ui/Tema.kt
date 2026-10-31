@@ -164,7 +164,11 @@ fun TemaCitas(apariencia: Apariencia = Apariencia.AUTO, contenido: @Composable (
     }
     // Se fija antes de dibujar los hijos, que leen los colores de Papel.
     if (Papel.oscuro != oscuro) Papel.oscuro = oscuro
-    MaterialTheme(colorScheme = colores(oscuro), typography = letras, shapes = formas, content = contenido)
+    MaterialTheme(colorScheme = colores(oscuro), typography = letras, shapes = formas) {
+        // Las pantallas se pintan sobre Box, no sobre Surface: sin esto el texto sin color
+        // propio sale negro (en modo oscuro, negro sobre negro).
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides Papel.tinta, content = contenido)
+    }
 }
 
 /** Estilo de los calendarios y relojes del sistema (DatePicker, TimePicker), según el modo. */
