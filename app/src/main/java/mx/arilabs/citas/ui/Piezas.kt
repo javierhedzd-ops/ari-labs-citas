@@ -39,6 +39,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -57,9 +59,13 @@ fun Modifier.alTocar(onClick: () -> Unit, etiqueta: String? = null): Modifier {
     val fuente = remember { MutableInteractionSource() }
     val apretado by fuente.collectIsPressedAsState()
     val escala by animateFloatAsState(if (apretado) 0.97f else 1f, spring(dampingRatio = 0.6f, stiffness = 500f), label = "toque")
+    val vibra = androidx.compose.ui.platform.LocalHapticFeedback.current
     return this
         .scale(escala)
-        .clickable(interactionSource = fuente, indication = null, role = Role.Button, onClickLabel = etiqueta, onClick = onClick)
+        .clickable(interactionSource = fuente, indication = null, role = Role.Button, onClickLabel = etiqueta) {
+            vibra.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+            onClick()
+        }
 }
 
 @Composable
@@ -75,7 +81,8 @@ fun Tarjeta(
         modifier = mod,
         color = color,
         shape = RoundedCornerShape(radio),
-        shadowElevation = if (color == Papel.hoja) 1.dp else 0.dp,
+        shadowElevation = if (color == Papel.hoja) 0.5.dp else 0.dp,
+        border = if (color == Papel.hoja) androidx.compose.foundation.BorderStroke(0.5.dp, Papel.linea.copy(alpha = 0.6f)) else null,
         tonalElevation = 0.dp,
     ) { contenido() }
 }
@@ -99,9 +106,11 @@ fun Boton(
         }
         Text(texto, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
+    val vibra = androidx.compose.ui.platform.LocalHapticFeedback.current
     if (primario) {
         Button(
-            onClick = onClick, enabled = activo, modifier = mod, shape = RoundedCornerShape(18.dp),
+            onClick = { vibra.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove); onClick() },
+            enabled = activo, modifier = mod, shape = RoundedCornerShape(18.dp),
             colors = ButtonDefaults.buttonColors(containerColor = colorFondo),
             content = cuerpo,
         )
@@ -168,7 +177,15 @@ fun TituloGrande(titulo: String, subtitulo: String? = null, acciones: @Composabl
 fun TarjetaCita(c: Cita, mostrarFecha: String? = null, onClick: () -> Unit) {
     val apagada = c.cancelada || c.hecha
     val colorTipo by animateColorAsState(if (apagada) Papel.cancelada else Papel.colorTipo(c.tipo), label = "tipo")
-    Tarjeta(Modifier.fillMaxWidth(), onClick = onClick) {
+    val entrada = remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { entrada.animateTo(1f, androidx.compose.animation.core.tween(280)) }
+    Tarjeta(
+        Modifier.fillMaxWidth().graphicsLayer {
+            alpha = 0.4f + 0.6f * entrada.value
+            translationY = (1f - entrada.value) * 18.dp.toPx()
+        },
+        onClick = onClick,
+    ) {
         Row(Modifier.padding(start = 0.dp, end = 12.dp, top = 14.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.padding(start = 10.dp).width(5.dp).height(52.dp).clip(RoundedCornerShape(3.dp)).background(colorTipo))
             Column(Modifier.widthIn(min = 84.dp).padding(start = 14.dp, end = 10.dp)) {
@@ -202,10 +219,19 @@ fun TarjetaCita(c: Cita, mostrarFecha: String? = null, onClick: () -> Unit) {
                 val donde = listOf(c.colonia, zona).filter { it.isNotBlank() }.joinToString(" · ")
                 if (donde.isNotBlank()) Text(donde, style = MaterialTheme.typography.bodySmall, color = Papel.tenue, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            if (c.hecha && !c.cancelada) {
-                Icon(Icons.Filled.CheckCircle, contentDescription = "Hecha", tint = Papel.verde, modifier = Modifier.size(24.dp))
-            } else {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Papel.linea)
+            androidx.compose.animation.AnimatedContent(
+                targetState = c.hecha && !c.cancelada,
+                transitionSpec = {
+                    (androidx.compose.animation.scaleIn(spring(dampingRatio = 0.45f, stiffness = 400f)) + androidx.compose.animation.fadeIn()) togetherWith
+                        androidx.compose.animation.fadeOut()
+                },
+                label = "hecha",
+            ) { hecha ->
+                if (hecha) {
+                    Icon(Icons.Filled.CheckCircle, contentDescription = "Hecha", tint = Papel.verde, modifier = Modifier.size(26.dp))
+                } else {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Papel.linea)
+                }
             }
         }
     }

@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import mx.arilabs.citas.datos.Agenda
 import mx.arilabs.citas.datos.Almacen
 import mx.arilabs.citas.datos.Anticipo
@@ -137,6 +138,8 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
     // De dónde venimos, para que "Atrás" regrese al lugar correcto.
     val historial = remember { mutableStateListOf<Vista>() }
     val hoy = LocalDate.now()
+    val avisos = remember { androidx.compose.material3.SnackbarHostState() }
+    val corrutinas = androidx.compose.runtime.rememberCoroutineScope()
 
     fun ir(v: Vista) { historial.add(vista); vista = v }
     fun atras() { vista = if (historial.isNotEmpty()) historial.removeAt(historial.lastIndex) else Vista.Inicio }
@@ -150,6 +153,15 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
         val i = citas.indexOfFirst { it.id == c.id }
         if (i >= 0) citas[i] = c else citas.add(c)
         guardarTodo()
+    }
+
+    /** Aviso abajo con "Deshacer", como en Gmail. */
+    fun conDeshacer(mensaje: String, deshacer: () -> Unit) {
+        corrutinas.launch {
+            avisos.currentSnackbarData?.dismiss()
+            val r = avisos.showSnackbar(mensaje, actionLabel = "Deshacer", duration = androidx.compose.material3.SnackbarDuration.Long)
+            if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) deshacer()
+        }
     }
 
     val pedirAvisos = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -175,6 +187,7 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
     BackHandler(enabled = vista != Vista.Inicio && vista != Vista.Bienvenida) { atras() }
     BackHandler(enabled = vista == Vista.Inicio && pestana != Pestana.AGENDA) { pestana = Pestana.AGENDA }
 
+    Box(Modifier.fillMaxSize()) {
     AnimatedContent(
         targetState = vista,
         transitionSpec = {
@@ -207,7 +220,10 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
                     onCliente = { ir(Vista.Cliente(it)) },
                     onBuscar = { ir(Vista.Buscar) },
                     onAjustes = { ir(Vista.Ajustes) },
-                    onPagada = { reemplazar(it.copy(pagada = true)) },
+                    onPagada = { c ->
+                        reemplazar(c.copy(pagada = true))
+                        conDeshacer("${c.cliente}: pagado") { reemplazar(c) }
+                    },
                     repertorio = repertorio,
                     onGuardarCancion = { can ->
                         val nueva = if (can.id == 0L) can.copy(id = (repertorio.maxOfOrNull { it.id } ?: 0L) + 1) else can
@@ -317,9 +333,11 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
                                 ))
                             },
                             onBorrar = {
+                                val borrada = c
                                 citas.removeAll { it.id == c.id }
                                 guardarTodo()
                                 atras()
+                                conDeshacer("Cita de ${borrada.cliente} borrada") { reemplazar(borrada) }
                             },
                             onHecha = { reemplazar(c.copy(hecha = it)) },
                             onPagada = { reemplazar(c.copy(pagada = it)) },
@@ -393,6 +411,20 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
                 }
             }
         }
+    }
+    androidx.compose.material3.SnackbarHost(
+        avisos,
+        modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter).safeDrawingPadding()
+            .padding(bottom = if (vista == Vista.Inicio) 84.dp else 8.dp, start = 12.dp, end = 12.dp),
+    ) { datos ->
+        androidx.compose.material3.Snackbar(
+            datos,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            containerColor = Papel.tinta,
+            contentColor = androidx.compose.ui.graphics.Color.White,
+            actionColor = androidx.compose.ui.graphics.Color(0xFF9ED8EE),
+        )
+    }
     }
 }
 

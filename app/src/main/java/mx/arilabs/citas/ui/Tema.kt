@@ -68,7 +68,17 @@ private val colores = lightColorScheme(
     error = Papel.rojo,
 )
 
-private val letras = Typography(
+/** Plus Jakarta Sans (OFL), variable: un solo archivo para todos los pesos. */
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+private fun peso(w: Int) = androidx.compose.ui.text.font.Font(
+    mx.arilabs.citas.R.font.plus_jakarta,
+    weight = FontWeight(w),
+    variationSettings = androidx.compose.ui.text.font.FontVariation.Settings(androidx.compose.ui.text.font.FontVariation.weight(w)),
+)
+
+val Jakarta = androidx.compose.ui.text.font.FontFamily(peso(400), peso(500), peso(600), peso(700), peso(800))
+
+private val letrasBase = Typography(
     displaySmall = TextStyle(fontSize = 34.sp, fontWeight = FontWeight.Bold, lineHeight = 40.sp, letterSpacing = (-0.5).sp),
     headlineMedium = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold, lineHeight = 34.sp, letterSpacing = (-0.3).sp),
     titleLarge = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.SemiBold, lineHeight = 28.sp),
@@ -81,6 +91,16 @@ private val letras = Typography(
     labelMedium = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
     labelSmall = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium),
 )
+
+private val letras = letrasBase.run {
+    fun TextStyle.j() = copy(fontFamily = Jakarta)
+    copy(
+        displaySmall = displaySmall.j().copy(fontWeight = FontWeight.ExtraBold), headlineMedium = headlineMedium.j(),
+        titleLarge = titleLarge.j(), titleMedium = titleMedium.j(), titleSmall = titleSmall.j(),
+        bodyLarge = bodyLarge.j(), bodyMedium = bodyMedium.j(), bodySmall = bodySmall.j(),
+        labelLarge = labelLarge.j(), labelMedium = labelMedium.j(), labelSmall = labelSmall.j(),
+    )
+}
 
 private val formas = Shapes(
     small = RoundedCornerShape(12.dp),

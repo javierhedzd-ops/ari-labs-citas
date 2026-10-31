@@ -171,7 +171,12 @@ private fun TarjetaProxima(c: Cita, ahora: LocalDateTime, hoy: LocalDate, nombre
         else -> Mensajes.cuando(c.fecha, hoy).replaceFirstChar { it.uppercase() }
     }
     Tarjeta(Modifier.fillMaxWidth(), color = Papel.azul, radio = 26.dp, onClick = onClick) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(
+            Modifier
+                .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Papel.azul, androidx.compose.ui.graphics.lerp(Papel.azul, Papel.colorTipo(c.tipo), 0.55f))))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Iconos.reloj, null, tint = Color(0xFFB9CCE6), modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))

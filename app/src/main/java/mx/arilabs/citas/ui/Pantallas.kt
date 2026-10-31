@@ -519,8 +519,14 @@ fun PantallaDetalle(
 
 @Composable
 private fun Interruptor(texto: String, valor: Boolean, onCambio: (Boolean) -> Unit) {
+    val vibra = androidx.compose.ui.platform.LocalHapticFeedback.current
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 60.dp).toggleable(value = valor, role = Role.Switch, onValueChange = onCambio).padding(horizontal = 16.dp),
+        Modifier.fillMaxWidth().heightIn(min = 60.dp)
+            .toggleable(value = valor, role = Role.Switch, onValueChange = {
+                vibra.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                onCambio(it)
+            })
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(texto, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
