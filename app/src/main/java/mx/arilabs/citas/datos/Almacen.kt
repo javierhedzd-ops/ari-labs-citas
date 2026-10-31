@@ -118,6 +118,7 @@ class Almacen(context: Context) {
         put("duracion", c.duracion)
         put("canciones", JSONArray().apply { c.canciones.forEach { put(it) } })
         put("equipoListo", JSONArray().apply { c.equipoListo.forEach { put(it) } })
+        put("mapa", c.mapa)
     }
 
     private fun desdeJson(o: JSONObject) = Cita(
@@ -144,6 +145,7 @@ class Almacen(context: Context) {
             duracion = o.optInt("duracion", c.tipo.duracion).coerceIn(15, DURACION_MAXIMA),
             canciones = o.optJSONArray("canciones")?.let { a -> (0 until a.length()).map { a.getLong(it) } } ?: emptyList(),
             equipoListo = o.optJSONArray("equipoListo")?.let { a -> (0 until a.length()).map { a.getString(it) }.toSet() } ?: emptySet(),
+            mapa = o.optString("mapa"),
         )
     }
 }

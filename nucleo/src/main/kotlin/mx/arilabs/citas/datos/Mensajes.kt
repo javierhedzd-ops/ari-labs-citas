@@ -78,6 +78,22 @@ object Mensajes {
         else -> "${min / 60} h ${min % 60} min"
     }
 
+    /** Mensaje de bienvenida para WhatsApp Business: el cliente lo llena y se comparte a la app. */
+    fun bienvenida(nombre: String): String = buildString {
+        append("¡Hola! Gracias por escribir")
+        if (nombre.isNotBlank()) append(" a $nombre")
+        append(". Para apartar su fecha, por favor copie este mensaje, llénelo y me lo manda:\n\n")
+        append("Evento: (misa, boda, XV años, rezo, novena, velorio, fiesta)\n")
+        append("Fecha:\n")
+        append("Hora:\n")
+        append("Duración: (máximo 2 horas)\n")
+        append("Dirección:\n")
+        append("Colonia:\n")
+        append("Nombre:\n")
+        append("Teléfono:\n\n")
+        append("Si puede, mándeme también su ubicación para llegar sin perderme. En cuanto lo vea le confirmo.")
+    }
+
     /** Cotización lista para WhatsApp. */
     fun cotizacion(c: Cita, nombre: String, hoy: LocalDate): String = buildString {
         append(saludo(c.cliente, nombre))

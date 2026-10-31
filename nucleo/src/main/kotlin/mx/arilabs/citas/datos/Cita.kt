@@ -82,12 +82,14 @@ data class Cita(
     val canciones: List<Long> = emptyList(),
     /** Lo del equipo que ya se palomeó para este evento. */
     val equipoListo: Set<String> = emptySet(),
+    /** Enlace de Maps con la ubicación que mandó el cliente (si la mandó). */
+    val mapa: String = "",
 ) {
     fun termina(): java.time.LocalTime = hora.plusMinutes(duracion.toLong())
 
     /** Lo que se busca en Maps: dirección, colonia y ciudad. */
     fun direccionParaMapa(): String =
-        listOf(lugar, colonia, "Mérida, Yucatán")
+        if (mapa.isNotBlank()) mapa else listOf(lugar, colonia, "Mérida, Yucatán")
             .filter { it.isNotBlank() }
             .distinct()
             .joinToString(", ")

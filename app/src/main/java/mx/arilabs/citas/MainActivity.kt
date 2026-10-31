@@ -96,20 +96,37 @@ private sealed interface Vista {
 }
 
 class MainActivity : ComponentActivity() {
+    /** Texto compartido desde WhatsApp (u otra app) que falta convertir en cita. */
+    private val compartido = mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (savedInstanceState == null) recibir(intent)
         val almacen = Almacen(applicationContext)
         setContent {
             TemaCitas {
-                Box(Modifier.fillMaxSize().background(Papel.fondo)) { App(almacen) }
+                Box(Modifier.fillMaxSize().background(Papel.fondo)) {
+                    App(almacen, compartido.value) { compartido.value = null }
+                }
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        recibir(intent)
+    }
+
+    private fun recibir(intent: android.content.Intent?) {
+        if (intent?.action != android.content.Intent.ACTION_SEND) return
+        val texto = intent.getStringExtra(android.content.Intent.EXTRA_TEXT)?.trim().orEmpty()
+        if (texto.isNotEmpty()) compartido.value = texto
     }
 }
 
 @Composable
-private fun App(almacen: Almacen) {
+private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> Unit) {
     val context = LocalContext.current
     val citas = remember { mutableStateListOf<Cita>().apply { addAll(almacen.leer()) } }
     var nombre by remember { mutableStateOf(almacen.nombre) }
@@ -143,6 +160,16 @@ private fun App(almacen: Almacen) {
         if (nombre.isNotBlank() && Build.VERSION.SDK_INT >= 33 &&
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
         ) pedirAvisos.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    // Un mensaje compartido desde WhatsApp abre "Revisa la cita" ya ordenada.
+    LaunchedEffect(compartido, nombre.isNotBlank()) {
+        if (compartido != null && nombre.isNotBlank()) {
+            historial.clear()
+            historial.add(Vista.Inicio)
+            vista = Vista.Formulario(LectorDeCitas.leer(compartido, LocalDate.now()), null)
+            onCompartidoUsado()
+        }
     }
 
     BackHandler(enabled = vista != Vista.Inicio && vista != Vista.Bienvenida) { atras() }
@@ -219,6 +246,7 @@ private fun App(almacen: Almacen) {
                                 pagada = anterior?.pagada ?: false,
                                 duracion = (b.duracion ?: (b.tipo ?: Tipo.OTRO).duracion).coerceIn(15, mx.arilabs.citas.datos.DURACION_MAXIMA),
                                 canciones = anterior?.canciones ?: emptyList(),
+                                mapa = b.mapa.ifBlank { anterior?.mapa ?: "" },
                                 equipoListo = anterior?.equipoListo ?: emptySet(),
                             )
                             if (nueveDias) {
@@ -258,7 +286,7 @@ private fun App(almacen: Almacen) {
                                     Borrador(
                                         fecha = c.fecha, hora = c.hora, cliente = c.cliente, tipo = c.tipo, lugar = c.lugar,
                                         colonia = c.colonia, zona = c.zona, telefono = c.telefono, precio = c.precio,
-                                        anticipo = c.anticipo, notas = c.notas, duracion = c.duracion,
+                                        anticipo = c.anticipo, notas = c.notas, duracion = c.duracion, mapa = c.mapa,
                                     ),
                                     c.id,
                                 ))
@@ -337,6 +365,7 @@ private fun App(almacen: Almacen) {
                                 if (nuevas.isEmpty()) "Ya tenías todas las citas de esa copia." else "Recuperé ${nuevas.size} citas."
                             }
                         },
+                        bienvenida = Mensajes.bienvenida(nombre),
                         onEjemplos = { poner ->
                             citas.removeAll { Ejemplos.esEjemplo(it) }
                             if (poner) citas.addAll(Ejemplos.crear(hoy))

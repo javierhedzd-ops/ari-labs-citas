@@ -20,6 +20,8 @@ data class Borrador(
     val anticipo: Int? = null,
     /** Minutos que dura, si se dijo ("2 horas", "hora y media"). */
     val duracion: Int? = null,
+    /** Enlace de Maps si mandaron su ubicación por WhatsApp. */
+    val mapa: String = "",
     val notas: String = "",
     val dudas: List<String> = emptyList(),
     val texto: String = "",
@@ -55,6 +57,11 @@ object LectorDeCitas {
 
     // Formas comunes en México: 9991234567, 999 123 4567, 999-123-45-67, 99 9123 4567.
     // Nunca juntar números sueltos ("calle 32 9991234567" no es "32 99912345").
+    private val reMapa = Regex("""https?://\S*(?:maps\.app\.goo\.gl|goo\.gl/maps|maps\.google|google\.[a-z.]+/maps|waze\.com)\S*""")
+    private val reOtroEnlace = Regex("""https?://\S+""")
+    private val reEtiqueta = Regex(
+        """(?m)^[ \t*•-]*(nombre completo|a nombre de|nombre|cliente|tipo de evento|evento|tipo|fecha|dia|hora|duracion|direccion|domicilio|lugar|donde|colonia|fraccionamiento|telefono|tel|celular|whatsapp|referencias?|notas?)[ \t]*[:=][ \t]*(.*)$""",
+    )
     private val reTelefono = Regex(
         """(?<![\d/#$,.])(?:\+?52[\s-]?)?""" +
             """(?:\d{10}|\d{3}[\s.-]\d{3}[\s.-]\d{4}|\d{3}[\s.-]\d{3}[\s.-]\d{2}[\s.-]\d{2}|\d{2}[\s.-]\d{4}[\s.-]\d{4})(?![\d])""",
@@ -117,6 +124,31 @@ object LectorDeCitas {
         val t = Texto(texto)
         val dudas = mutableListOf<String>()
 
+        // La ubicación de WhatsApp llega como enlace de Maps; se guarda tal cual (respeta mayúsculas).
+        val mapa = t.tomar(reMapa)?.let { t.original.substring(it.range).trimEnd('.', ',', ')') } ?: ""
+        t.tomar(reOtroEnlace)
+
+        // Respuestas con formato: "Nombre: ...", "Dirección: ...", "Colonia: ..." (mensaje de bienvenida).
+        var clienteEtiqueta = ""
+        var coloniaEtiqueta = ""
+        val lugares = mutableListOf<String>()
+        val notasEtiqueta = mutableListOf<String>()
+        var e = t.tomar(reEtiqueta)
+        while (e != null) {
+            val valor = t.original.substring(e.groups[2]!!.range).trim()
+            when (e.groupValues[1].replace(Regex("\\s+"), " ")) {
+                "nombre", "cliente", "nombre completo", "a nombre de" -> clienteEtiqueta = valor
+                "direccion", "domicilio", "lugar", "donde" -> lugares += valor
+                "colonia", "fraccionamiento" -> coloniaEtiqueta = valor
+                "referencia", "referencias", "notas", "nota" -> notasEtiqueta += valor
+                else -> {
+                    // Fecha, hora, evento, teléfono: se libera el valor para leerlo normal.
+                    e.groups[2]!!.range.forEach { t.usado[it] = false }
+                }
+            }
+            e = t.tomar(reEtiqueta)
+        }
+
         val telefono = t.tomar(reTelefono)?.let { m -> m.value.filter(Char::isDigit).takeLast(10) } ?: ""
         val anticipo = t.tomar(reAnticipo)?.let { pesos(it.groupValues[1]) }
         val precio = t.tomar(rePrecio)?.let { m -> pesos(m.groupValues.drop(1).first { it.isNotEmpty() }) }
@@ -135,14 +167,13 @@ object LectorDeCitas {
             if (min > 120) { dudas += "Máximo 2 horas por evento: lo dejé en 2 horas."; 120 } else min
         }
 
-        val lugares = mutableListOf<String>()
         t.tomar(reCalle)?.let { lugares += t.original.substring(it.range).trim() }
 
         val hora = leerHora(t, dudas)
         val fecha = leerFecha(t, hoy)
 
         // El cliente antes que el tipo: "doña Rosario" no es un rosario.
-        var cliente = t.tomar(reCliente)?.let { m ->
+        var cliente = clienteEtiqueta.ifEmpty { null } ?: t.tomar(reCliente)?.let { m ->
             val nombre = t.palabras(m.range.last + 1, maximo = 4, esNombre = true)
             if (nombre.isEmpty()) "" else t.original.substring(m.range.first, m.range.last + 1).trim() + " " + nombre
         } ?: ""
@@ -162,7 +193,7 @@ object LectorDeCitas {
             cliente = t.tomar(reClienteSuave)?.let { m -> t.palabras(m.range.last + 1, maximo = 4, esNombre = true) } ?: ""
         }
 
-        var colonia = t.tomar(reColonia)?.let { m -> t.palabras(m.range.last + 1, maximo = 4, esNombre = false, numeros = true) } ?: ""
+        var colonia = coloniaEtiqueta.ifEmpty { null } ?: t.tomar(reColonia)?.let { m -> t.palabras(m.range.last + 1, maximo = 4, esNombre = false, numeros = true) } ?: ""
         if (colonia.isEmpty()) colonia = t.tomarColoniaConocida() ?: ""
         // "iglesia de Santiago": el lugar ya dice el barrio.
         if (colonia.isEmpty()) colonia = lugares.firstNotNullOfOrNull { Colonias.buscarEn(it) } ?: ""
@@ -187,13 +218,14 @@ object LectorDeCitas {
         }
 
         val lugar = lugares.filter { it.isNotBlank() }.joinToString(", ")
+        resto = notasEtiqueta + resto
 
         if (fecha == null) dudas += "¿Qué día es?"
         if (hora == null) dudas += "¿A qué hora?"
         if (tipo == null) dudas += "¿Qué evento es? (misa, boda, XV, rezo…)"
         if (cliente.isEmpty()) dudas += "¿Con quién es la cita?"
         if (colonia.isNotEmpty() && zona == Zona.SIN_ZONA) dudas += "No conozco la colonia $colonia: escoge la zona."
-        if (lugar.isEmpty() && colonia.isEmpty()) dudas += "¿Dónde es?"
+        if (lugar.isEmpty() && colonia.isEmpty() && mapa.isEmpty()) dudas += "¿Dónde es?"
         if (anticipo != null && precio != null && anticipo > precio) dudas += "El anticipo es mayor que el precio."
 
         return Borrador(
@@ -208,6 +240,7 @@ object LectorDeCitas {
             precio = precio,
             anticipo = anticipo,
             duracion = duracion,
+            mapa = mapa,
             notas = resto.joinToString(", "),
             dudas = dudas,
             texto = texto.trim(),

@@ -687,6 +687,7 @@ fun PantallaAjustes(
     onCopia: () -> String,
     onRecuperar: (String) -> String,
     onEjemplos: (Boolean) -> Unit,
+    bienvenida: String = "",
 ) {
     val context = LocalContext.current
     var valor by rememberSaveable { mutableStateOf(nombre) }
@@ -699,6 +700,16 @@ fun PantallaAjustes(
             Grupo("Tu firma") {
                 Campo("Tu nombre en los mensajes", valor) { valor = it }
                 Boton("Guardar nombre", Modifier.fillMaxWidth(), activo = valor.isNotBlank() && valor.trim() != nombre) { onNombre(valor.trim()); Toast.makeText(context, "Guardado", Toast.LENGTH_SHORT).show() }
+            }
+            if (bienvenida.isNotBlank()) {
+                Grupo("WhatsApp Business") {
+                    Text(
+                        "Pon este texto como mensaje de bienvenida en WhatsApp Business. Cuando el cliente te conteste con sus datos, deja presionado su mensaje, toca Compartir y elige Mis citas: la cita se abre ya ordenada.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(bienvenida, style = MaterialTheme.typography.bodySmall, color = Papel.tenue)
+                    Boton("Copiar mensaje de bienvenida", Modifier.fillMaxWidth(), primario = true, icono = Iconos.copiar) { Acciones.copiar(context, bienvenida) }
+                }
             }
             Grupo("Copia de tus citas") {
                 Text("Si cambias o pierdes el teléfono, con la copia recuperas todo. Mándatela por WhatsApp de vez en cuando.", style = MaterialTheme.typography.bodyMedium)

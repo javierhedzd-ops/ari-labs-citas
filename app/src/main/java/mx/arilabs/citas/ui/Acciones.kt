@@ -36,6 +36,10 @@ object Acciones {
     }
 
     fun mapa(context: Context, direccion: String) {
+        // Si el cliente mandó su ubicación, se abre ese punto exacto.
+        if (direccion.startsWith("http")) {
+            if (abrir(context, Intent(Intent.ACTION_VIEW, Uri.parse(direccion)))) return
+        }
         val uri = Uri.parse("geo:0,0?q=" + Uri.encode(direccion))
         if (abrir(context, Intent(Intent.ACTION_VIEW, uri).setPackage("com.google.android.apps.maps"))) return
         if (abrir(context, Intent(Intent.ACTION_VIEW, uri))) return

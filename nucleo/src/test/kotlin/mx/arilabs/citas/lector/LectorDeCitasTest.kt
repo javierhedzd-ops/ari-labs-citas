@@ -122,4 +122,38 @@ class LectorDeCitasTest {
         assertEquals(LocalTime.of(15, 0), hora.hora)
         assertNull(hora.duracion)
     }
+
+    @Test
+    fun respuestaDeWhatsAppConFormato() {
+        val texto = """
+            Evento: boda
+            Fecha: 21 de noviembre
+            Hora: 7 de la noche
+            Duración: 2 horas
+            Dirección: Salón Los Almendros, calle 21 x 30
+            Colonia: Montebello
+            Nombre: Ana Pérez
+            Teléfono: 999 123 4567
+        """.trimIndent()
+        val b = LectorDeCitas.leer(texto, hoy)
+        assertEquals(Tipo.BODA, b.tipo)
+        assertEquals(LocalDate.of(2026, 11, 21), b.fecha)
+        assertEquals(LocalTime.of(19, 0), b.hora)
+        assertEquals(120, b.duracion)
+        assertEquals("Salón Los Almendros, calle 21 x 30", b.lugar)
+        assertEquals("Montebello", b.colonia)
+        assertEquals(Zona.NORTE, b.zona)
+        assertEquals("Ana Pérez", b.cliente)
+        assertEquals("9991234567", b.telefono)
+        assertTrue(b.dudas.isEmpty())
+    }
+
+    @Test
+    fun ubicacionDeWhatsApp() {
+        val b = LectorDeCitas.leer("rezo mañana 6pm doña Mari https://maps.google.com/?q=20.9671,-89.6237", hoy)
+        assertEquals("https://maps.google.com/?q=20.9671,-89.6237", b.mapa)
+        assertEquals("", b.telefono)
+        assertEquals(LocalTime.of(18, 0), b.hora)
+        assertTrue(b.dudas.none { it.startsWith("¿Dónde") })
+    }
 }
