@@ -94,6 +94,7 @@ private sealed interface Vista {
     data object Buscar : Vista { override val nivel = 1 }
     data class ElegirCanciones(val id: Long) : Vista { override val nivel = 2 }
     data class Tocar(val id: Long) : Vista { override val nivel = 2 }
+    data object Activar : Vista { override val nivel = 2 }
 }
 
 class MainActivity : ComponentActivity() {
@@ -139,6 +140,12 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
     val historial = remember { mutableStateListOf<Vista>() }
     val hoy = LocalDate.now()
     val avisos = remember { androidx.compose.material3.SnackbarHostState() }
+    // Licencia: si la app trae llave pública, sin clave válida queda en modo prueba.
+    val llave = BuildConfig.LLAVE_LICENCIA
+    val candado = llave.isNotBlank()
+    var licencia by remember { mutableStateOf(mx.arilabs.citas.datos.Licencia.verificar(mx.arilabs.citas.ui.codigoTelefono(context), almacen.clave, llave)) }
+    fun propias() = citas.count { !Ejemplos.esEjemplo(it) }
+    fun puedeApuntar() = !candado || licencia != null || propias() < mx.arilabs.citas.datos.Licencia.CITAS_DE_PRUEBA
     val corrutinas = androidx.compose.runtime.rememberCoroutineScope()
 
     fun ir(v: Vista) { historial.add(vista); vista = v }
@@ -215,7 +222,7 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
                 Vista.Inicio -> Inicio(
                     citas = citas, hoy = hoy, nombre = nombre, pestana = pestana,
                     onPestana = { pestana = it },
-                    onNueva = { ir(Vista.Escribir()) },
+                    onNueva = { ir(if (puedeApuntar()) Vista.Escribir() else Vista.Activar) },
                     onVer = { ir(Vista.Detalle(it.id)) },
                     onCliente = { ir(Vista.Cliente(it)) },
                     onBuscar = { ir(Vista.Buscar) },
@@ -246,7 +253,8 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
                         titulo = if (v.editandoId == null) "Revisa la cita" else "Editar cita",
                         inicial = v.borrador, citas = citas, editandoId = v.editandoId,
                         onAtras = { atras() },
-                        onGuardar = { b, nueveDias ->
+                        onGuardar = guardar@{ b, nueveDias ->
+                            if (v.editandoId == null && !puedeApuntar()) { ir(Vista.Activar); return@guardar }
                             val anterior = v.editandoId?.let { id -> citas.firstOrNull { it.id == id } }
                             val cita = Cita(
                                 id = anterior?.id ?: almacen.siguienteId(citas),
@@ -384,6 +392,8 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
                             }
                         },
                         bienvenida = Mensajes.bienvenida(nombre),
+                        licencia = if (!candado) null else (licencia?.let { "Activada a nombre de $it" } ?: "Versión de prueba: ${propias()} de ${mx.arilabs.citas.datos.Licencia.CITAS_DE_PRUEBA} citas"),
+                        onActivar = if (candado && licencia == null) ({ ir(Vista.Activar) }) else null,
                         onEjemplos = { poner ->
                             citas.removeAll { Ejemplos.esEjemplo(it) }
                             if (poner) citas.addAll(Ejemplos.crear(hoy))
@@ -404,6 +414,25 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
                     if (c == null) LaunchedEffect(v.id) { atras() } else {
                         PantallaTocar(c, c.canciones.mapNotNull { id -> repertorio.firstOrNull { it.id == id } }, onSalir = { atras() })
                     }
+                }
+
+                Vista.Activar -> Box(Modifier.safeDrawingPadding()) {
+                    mx.arilabs.citas.ui.PantallaActivar(
+                        usadas = propias(),
+                        onAtras = { atras() },
+                        onActivar = { clave ->
+                            val nombreLicencia = mx.arilabs.citas.datos.Licencia.verificar(mx.arilabs.citas.ui.codigoTelefono(context), clave, llave)
+                            if (nombreLicencia == null) {
+                                "Esa clave no es de este teléfono. Revisa que la copiaste completa o pide una nueva."
+                            } else {
+                                almacen.clave = clave
+                                licencia = nombreLicencia
+                                atras()
+                                corrutinas.launch { avisos.showSnackbar("Mis citas activada a nombre de $nombreLicencia") }
+                                null
+                            }
+                        },
+                    )
                 }
 
                 Vista.Buscar -> Box(Modifier.safeDrawingPadding()) {

@@ -16,6 +16,8 @@ android {
         versionCode = 3
         versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Llave pública de licencias de Ari Labs (página de licencias de Javi). Vacía = sin candado.
+        buildConfigField("String", "LLAVE_LICENCIA", "\"${(project.findProperty("licenciaPublica") as String?) ?: ""}\"")
     }
 
     buildTypes {
@@ -37,6 +39,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

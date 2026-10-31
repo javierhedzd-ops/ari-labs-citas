@@ -694,6 +694,8 @@ fun PantallaAjustes(
     onRecuperar: (String) -> String,
     onEjemplos: (Boolean) -> Unit,
     bienvenida: String = "",
+    licencia: String? = null,
+    onActivar: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var valor by rememberSaveable { mutableStateOf(nombre) }
@@ -706,6 +708,12 @@ fun PantallaAjustes(
             Grupo("Tu firma") {
                 Campo("Tu nombre en los mensajes", valor) { valor = it }
                 Boton("Guardar nombre", Modifier.fillMaxWidth(), activo = valor.isNotBlank() && valor.trim() != nombre) { onNombre(valor.trim()); Toast.makeText(context, "Guardado", Toast.LENGTH_SHORT).show() }
+            }
+            if (licencia != null) {
+                Grupo("Licencia") {
+                    Text(licencia, style = MaterialTheme.typography.bodyLarge)
+                    if (onActivar != null) Boton("Activar Mis citas", Modifier.fillMaxWidth(), primario = true) { onActivar() }
+                }
             }
             if (bienvenida.isNotBlank()) {
                 Grupo("WhatsApp Business") {

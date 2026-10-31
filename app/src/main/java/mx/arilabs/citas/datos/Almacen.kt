@@ -21,6 +21,12 @@ class Almacen(context: Context) {
         get() = prefs.getString("nombre", "") ?: ""
         set(v) = prefs.edit().putString("nombre", v.trim()).apply()
 
+    // ------------------------------------------------ Licencia
+
+    var clave: String
+        get() = prefs.getString("clave", "") ?: ""
+        set(v) = prefs.edit().putString("clave", v.trim()).apply()
+
     // ------------------------------------------------ Repertorio y equipo
 
     private val archivoRepertorio = File(context.filesDir, "repertorio.json")
