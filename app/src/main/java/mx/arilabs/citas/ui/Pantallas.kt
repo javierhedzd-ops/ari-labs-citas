@@ -131,7 +131,7 @@ fun PantallaEscribir(inicial: String, onAtras: () -> Unit, onOrdenar: (String) -
                         }
                     }, "Dictar con la voz"),
                     contentAlignment = Alignment.Center,
-                ) { Icon(Iconos.microfono, contentDescription = "Dictar", tint = Color.White, modifier = Modifier.size(30.dp)) }
+                ) { Icon(Iconos.microfono, contentDescription = "Dictar", tint = Papel.sobreAzul, modifier = Modifier.size(30.dp)) }
                 Text("Toca y dime la cita", style = MaterialTheme.typography.bodyLarge, color = Papel.tenue)
             }
             if (texto.isBlank()) {
@@ -208,12 +208,12 @@ fun PantallaFormulario(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Boton(fecha?.let { Mensajes.fecha(it) } ?: "Escoger día", Modifier.weight(1f), icono = Iconos.calendario) {
                         val f = fecha ?: LocalDate.now()
-                        DatePickerDialog(context, { _, a, m, d -> fecha = LocalDate.of(a, m + 1, d) }, f.year, f.monthValue - 1, f.dayOfMonth).show()
+                        DatePickerDialog(context, estiloDialogo(), { _, a, m, d -> fecha = LocalDate.of(a, m + 1, d) }, f.year, f.monthValue - 1, f.dayOfMonth).show()
                     }
                 }
                 Boton(hora?.let { Mensajes.hora(it) } ?: "Escoger hora", Modifier.fillMaxWidth(), icono = Iconos.reloj) {
                     val h = hora ?: LocalTime.of(17, 0)
-                    TimePickerDialog(context, { _, hh, mm -> hora = LocalTime.of(hh, mm) }, h.hour, h.minute, false).show()
+                    TimePickerDialog(context, estiloDialogo(), { _, hh, mm -> hora = LocalTime.of(hh, mm) }, h.hour, h.minute, false).show()
                 }
                 Text(
                     "Dura" + (hora?.let { " · termina ${Mensajes.horaCorta(it.plusMinutes(minutos.toLong()))}" } ?: ""),
@@ -352,7 +352,7 @@ fun PantallaDetalle(
     val context = LocalContext.current
     var preguntarCancelar by remember { mutableStateOf(false) }
     var preguntarBorrar by remember { mutableStateOf(false) }
-    val color = if (c.cancelada) Papel.cancelada else Papel.colorTipo(c.tipo)
+    val color = if (c.cancelada) Papel.cancelada else Papel.tipoFondo(c.tipo)
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
@@ -389,9 +389,9 @@ fun PantallaDetalle(
                 }
                 AccionRedonda("Llegar", Icons.Filled.Place) { Acciones.mapa(context, c.direccionParaMapa()) }
                 AccionRedonda("Mover", Iconos.reloj, activo = !c.cancelada) {
-                    DatePickerDialog(context, { _, a, m, d ->
+                    DatePickerDialog(context, estiloDialogo(), { _, a, m, d ->
                         val nueva = LocalDate.of(a, m + 1, d)
-                        TimePickerDialog(context, { _, hh, mm -> onMover(nueva, LocalTime.of(hh, mm)) }, c.hora.hour, c.hora.minute, false).show()
+                        TimePickerDialog(context, estiloDialogo(), { _, hh, mm -> onMover(nueva, LocalTime.of(hh, mm)) }, c.hora.hour, c.hora.minute, false).show()
                     }, c.fecha.year, c.fecha.monthValue - 1, c.fecha.dayOfMonth).show()
                 }
             }
@@ -647,7 +647,7 @@ fun PantallaBienvenida(onEmpezar: (String, Boolean) -> Unit) {
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Spacer(Modifier.height(24.dp))
         Box(Modifier.size(76.dp).clip(RoundedCornerShape(22.dp)).background(Papel.azul), contentAlignment = Alignment.Center) {
-            Icon(Iconos.calendario, null, tint = Color.White, modifier = Modifier.size(40.dp))
+            Icon(Iconos.calendario, null, tint = Papel.sobreAzul, modifier = Modifier.size(40.dp))
         }
         Text("Mis citas", style = MaterialTheme.typography.displaySmall)
         Text("Tus eventos, tu música y tus cobros, en orden.", style = MaterialTheme.typography.titleMedium, color = Papel.tenue)
@@ -696,6 +696,8 @@ fun PantallaAjustes(
     bienvenida: String = "",
     licencia: String? = null,
     onActivar: (() -> Unit)? = null,
+    apariencia: Apariencia = Apariencia.AUTO,
+    onApariencia: (Apariencia) -> Unit = {},
 ) {
     val context = LocalContext.current
     var valor by rememberSaveable { mutableStateOf(nombre) }
@@ -708,6 +710,18 @@ fun PantallaAjustes(
             Grupo("Tu firma") {
                 Campo("Tu nombre en los mensajes", valor) { valor = it }
                 Boton("Guardar nombre", Modifier.fillMaxWidth(), activo = valor.isNotBlank() && valor.trim() != nombre) { onNombre(valor.trim()); Toast.makeText(context, "Guardado", Toast.LENGTH_SHORT).show() }
+            }
+            Grupo("Apariencia") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    Apariencia.entries.forEach { a ->
+                        FilterChip(
+                            selected = apariencia == a, onClick = { onApariencia(a) },
+                            label = { Text(a.nombre, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        )
+                    }
+                }
+                Text("Automático usa el modo del teléfono.", style = MaterialTheme.typography.bodySmall, color = Papel.tenue)
             }
             if (licencia != null) {
                 Grupo("Licencia") {

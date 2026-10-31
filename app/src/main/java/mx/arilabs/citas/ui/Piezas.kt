@@ -280,7 +280,7 @@ fun Iniciales(nombre: String, tam: Dp = 46.dp) {
         .filterNot { it.lowercase().trimEnd('.') in setOf("doña", "dona", "don", "sra", "sr", "señora", "señor", "familia", "la", "el", "de", "del", "profe", "maestra", "maestro", "hermana", "hermano") }
     val ini = (limpio.take(2).joinToString("") { it.take(1).uppercase() }).ifBlank { "?" }
     val paleta = listOf(Color(0xFF2F5C93), Color(0xFF3F7A3A), Color(0xFF8A3A3A), Color(0xFF7A5A1E), Color(0xFF5A4A8A), Color(0xFF1E6A6A))
-    val color = paleta[(nombre.lowercase().hashCode() and 0x7fffffff) % paleta.size]
+    val color = Papel.legible(paleta[(nombre.lowercase().hashCode() and 0x7fffffff) % paleta.size])
     Box(Modifier.size(tam).clip(CircleShape).background(color.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
         Text(ini, style = MaterialTheme.typography.titleSmall, color = color)
     }

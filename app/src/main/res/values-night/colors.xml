@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fondo al abrir la app con el teléfono en modo oscuro (igual a Papel.fondo oscuro). -->
+    <color name="fondo">#0D0F12</color>
+    <color name="azul">#1F3F66</color>
+</resources>

@@ -170,10 +170,10 @@ private fun TarjetaProxima(c: Cita, ahora: LocalDateTime, hoy: LocalDate, nombre
         minutos < 24 * 60 -> "En ${minutos / 60} h ${minutos % 60} min"
         else -> Mensajes.cuando(c.fecha, hoy).replaceFirstChar { it.uppercase() }
     }
-    Tarjeta(Modifier.fillMaxWidth(), color = Papel.azul, radio = 26.dp, onClick = onClick) {
+    Tarjeta(Modifier.fillMaxWidth(), color = Papel.relleno, radio = 26.dp, onClick = onClick) {
         Column(
             Modifier
-                .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Papel.azul, androidx.compose.ui.graphics.lerp(Papel.azul, Papel.colorTipo(c.tipo), 0.55f))))
+                .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Papel.relleno, androidx.compose.ui.graphics.lerp(Papel.relleno, Papel.tipoFondo(c.tipo), 0.55f))))
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -227,7 +227,7 @@ private fun TiraSemana(citas: List<Cita>, hoy: LocalDate, elegido: LocalDate, on
         items(dias, key = { it.toEpochDay() }) { d ->
             val sel = d == elegido
             val n = citas.count { it.fecha == d && !it.cancelada }
-            val fondo by animateColorAsState(if (sel) Papel.azul else Papel.hoja, tween(220), label = "dia")
+            val fondo by animateColorAsState(if (sel) Papel.relleno else Papel.hoja, tween(220), label = "dia")
             val texto by animateColorAsState(if (sel) Color.White else Papel.tinta, tween(220), label = "dia-t")
             Tarjeta(color = fondo, radio = 18.dp, onClick = { onElegir(d) }) {
                 Column(
@@ -297,7 +297,7 @@ fun SeccionCalendario(citas: List<Cita>, hoy: LocalDate, onVer: (Cita) -> Unit) 
                                         val sel = d == dia
                                         val cuantas = citas.count { it.fecha == d && !it.cancelada }
                                         val fondo by animateColorAsState(
-                                            when { sel -> Papel.azul; d == hoy -> Papel.azulSuave; else -> Color.Transparent }, tween(200), label = "c",
+                                            when { sel -> Papel.relleno; d == hoy -> Papel.azulSuave; else -> Color.Transparent }, tween(200), label = "c",
                                         )
                                         Column(
                                             Modifier.fillMaxSize().clip(CircleShape).background(fondo).alTocar({ elegido = d.toEpochDay() }, "Día $n"),

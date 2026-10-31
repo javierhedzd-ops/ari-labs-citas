@@ -21,6 +21,11 @@ class Almacen(context: Context) {
         get() = prefs.getString("nombre", "") ?: ""
         set(v) = prefs.edit().putString("nombre", v.trim()).apply()
 
+    /** Claro, oscuro o automático (como el teléfono). */
+    var apariencia: mx.arilabs.citas.ui.Apariencia
+        get() = runCatching { mx.arilabs.citas.ui.Apariencia.valueOf(prefs.getString("apariencia", "") ?: "") }.getOrDefault(mx.arilabs.citas.ui.Apariencia.AUTO)
+        set(v) = prefs.edit().putString("apariencia", v.name).apply()
+
     // ------------------------------------------------ Licencia
 
     var clave: String

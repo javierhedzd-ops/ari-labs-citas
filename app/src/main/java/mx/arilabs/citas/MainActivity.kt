@@ -104,20 +104,24 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Fallos.instalar(this)
-        // La app siempre es clara: con el teléfono en modo oscuro, la hora y la batería salían blancas sobre blanco.
-        enableEdgeToEdge(
-            statusBarStyle = androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
-        )
+        enableEdgeToEdge()
         if (savedInstanceState == null) recibir(intent)
         val almacen = Almacen(applicationContext)
         setContent {
-            TemaCitas {
+            var apariencia by remember { mutableStateOf(almacen.apariencia) }
+            TemaCitas(apariencia) {
                 Box(Modifier.fillMaxSize().background(Papel.fondo)) {
-                    App(almacen, compartido.value) { compartido.value = null }
+                    App(almacen, compartido.value, apariencia, onApariencia = { apariencia = it; almacen.apariencia = it }) { compartido.value = null }
                 }
             }
         }
+    }
+
+    /** Hora y batería oscuras sobre la app clara, claras sobre la oscura. */
+    fun barras(oscuras: Boolean) {
+        val t = android.graphics.Color.TRANSPARENT
+        val estilo = if (oscuras) androidx.activity.SystemBarStyle.dark(t) else androidx.activity.SystemBarStyle.light(t, t)
+        enableEdgeToEdge(statusBarStyle = estilo, navigationBarStyle = estilo)
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
@@ -133,7 +137,13 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> Unit) {
+private fun App(
+    almacen: Almacen,
+    compartido: String?,
+    apariencia: mx.arilabs.citas.ui.Apariencia,
+    onApariencia: (mx.arilabs.citas.ui.Apariencia) -> Unit,
+    onCompartidoUsado: () -> Unit,
+) {
     val context = LocalContext.current
     val citas = remember { mutableStateListOf<Cita>().apply { addAll(almacen.leer()) } }
     var nombre by remember { mutableStateOf(almacen.nombre) }
@@ -211,6 +221,10 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
             if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) ir(Vista.Activar)
         }
     }
+
+    // La pantalla para tocar siempre es negra; el resto sigue el modo claro u oscuro.
+    val barrasOscuras = Papel.oscuro || vista is Vista.Tocar
+    LaunchedEffect(barrasOscuras) { (context as? MainActivity)?.barras(barrasOscuras) }
 
     BackHandler(enabled = vista != Vista.Inicio && vista != Vista.Bienvenida) { atras() }
     BackHandler(enabled = vista == Vista.Inicio && pestana != Pestana.AGENDA) { pestana = Pestana.AGENDA }
@@ -399,6 +413,8 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
                         hayEjemplos = citas.any { Ejemplos.esEjemplo(it) },
                         onAtras = { atras() },
                         onNombre = { n -> almacen.nombre = n; nombre = n },
+                        apariencia = apariencia,
+                        onApariencia = onApariencia,
                         onCopia = { "Copia de Mis citas (${Mensajes.fecha(hoy)}). Guárdala, no la borres:\n" + almacen.exportar(citas.filter { !Ejemplos.esEjemplo(it) }) },
                         onRecuperar = { texto ->
                             val copia = almacen.importar(texto)
@@ -479,7 +495,7 @@ private fun App(almacen: Almacen, compartido: String?, onCompartidoUsado: () -> 
         androidx.compose.material3.Snackbar(
             datos,
             shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-            containerColor = Papel.tinta,
+            containerColor = Papel.snack,
             contentColor = androidx.compose.ui.graphics.Color.White,
             actionColor = androidx.compose.ui.graphics.Color(0xFF9ED8EE),
         )
@@ -544,7 +560,7 @@ private fun Inicio(
                     onClick = onNueva,
                     modifier = Modifier.testTag("nueva-cita"),
                     containerColor = Papel.azul,
-                    contentColor = androidx.compose.ui.graphics.Color.White,
+                    contentColor = Papel.sobreAzul,
                     icon = { Icon(Icons.Filled.Add, contentDescription = null) },
                     text = { Text("Nueva cita") },
                 )

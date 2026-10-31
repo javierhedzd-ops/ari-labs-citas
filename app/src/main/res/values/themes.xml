@@ -3,4 +3,15 @@
     <style name="Tema.Citas" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/fondo</item>
     </style>
+
+    <!-- Calendario y reloj del sistema con los colores de la app (claro y oscuro). -->
+    <style name="Dialogo.Citas" parent="android:Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">#1F3A5F</item>
+        <item name="android:colorPrimary">#1F3A5F</item>
+    </style>
+    <style name="Dialogo.Citas.Oscuro" parent="android:Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#9ED8EE</item>
+        <item name="android:colorPrimary">#22466D</item>
+        <item name="android:colorBackground">#171A1F</item>
+    </style>
 </resources>
